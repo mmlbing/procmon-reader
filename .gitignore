@@ -1,0 +1,20 @@
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+wheelhouse/
+
+# Compiled extensions
+*.pyd
+*.so
+*.pyo
+*.pyc
+
+# Python cache
+__pycache__/
+
+# Local / private files not for the repo
+docs_local/
+res_local/
+*.pml

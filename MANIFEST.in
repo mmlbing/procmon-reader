@@ -1,0 +1,13 @@
+# Include C++ source and header files so users can build from source (sdist)
+recursive-include procmon_reader/cpp *.cpp *.h
+
+# Include project files
+include README.md
+include LICENSE
+include pyproject.toml
+include setup.py
+
+# Exclude build artifacts
+exclude build/
+prune build/
+prune *.egg-info

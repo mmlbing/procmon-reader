@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "pybind11>=2.12"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "procmon-reader"
+version = "0.1.0"
+description = "C-accelerated multi-threaded Python reader for Process Monitor PML files"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "procmon-reader contributors" }]
+keywords = ["procmon", "process monitor", "pml", "sysinternals", "windows", "forensics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: C++",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Monitoring",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/procmon-reader"
+Repository = "https://github.com/YOUR_USERNAME/procmon-reader"
+Issues = "https://github.com/YOUR_USERNAME/procmon-reader/issues"
+
+[tool.setuptools.packages.find]
+include = ["procmon_reader*"]
+
+# ---------------------------------------------------------------------------
+# cibuildwheel configuration — used by the GitHub Actions CI/CD workflow
+# ---------------------------------------------------------------------------
+[tool.cibuildwheel]
+build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+# Skip 32-bit and PyPy wheels (not tested / not supported)
+skip = "pp* *-win32 *-manylinux_i686 *-musllinux_i686"
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+archs = "x86_64 aarch64"
+
+[tool.cibuildwheel.macos]
+archs = "x86_64 arm64"
+
+[tool.cibuildwheel.windows]
+archs = "AMD64"
