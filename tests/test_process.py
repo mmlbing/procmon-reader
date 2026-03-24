@@ -62,12 +62,14 @@ def main() -> int:
 
     # --- Process list has required keys ---
     def test_process_keys():
-        required = {"process_index", "process_id", "parent_process_id", "process_name",
-                     "image_path", "command_line", "user", "integrity", "is_64bit"}
+        required = {"process_index", "pid", "parent_pid", "process_name",
+                     "image_path", "command_line", "user", "integrity", "is_64_bit"}
         p = procs[0]
         missing = required - set(p.keys())
         if missing:
             return f"Missing keys in process dict: {missing}"
+        if "modules" in p:
+            return "process dict should not contain 'modules' key"
         return True
 
     # --- Known process: lsass.exe ---
@@ -76,16 +78,16 @@ def main() -> int:
         if not lsass:
             return "lsass.exe not found in process list"
         p = lsass[0]
-        if p["process_id"] != 744:
-            return f"lsass.exe pid: expected 744, got {p['process_id']}"
-        if p["parent_process_id"] != 596:
-            return f"lsass.exe parent_pid: expected 596, got {p['parent_process_id']}"
+        if p["pid"] != 744:
+            return f"lsass.exe pid: expected 744, got {p['pid']}"
+        if p["parent_pid"] != 596:
+            return f"lsass.exe parent_pid: expected 596, got {p['parent_pid']}"
         if p["integrity"] != "System":
             return f"lsass.exe integrity: expected 'System', got {p['integrity']!r}"
         if "NT AUTHORITY\\SYSTEM" not in p.get("user", ""):
             return f"lsass.exe user: expected 'NT AUTHORITY\\SYSTEM', got {p['user']!r}"
-        if p.get("is_64bit") is not True:
-            return f"lsass.exe is_64bit: expected True, got {p.get('is_64bit')!r}"
+        if p.get("is_64_bit") is not True:
+            return f"lsass.exe is_64_bit: expected True, got {p.get('is_64_bit')!r}"
         return True
 
     # --- Known process: Procmon64.exe ---
@@ -106,8 +108,8 @@ def main() -> int:
         if not explorer:
             return "Explorer.EXE not found in process list"
         p = explorer[0]
-        if p["process_id"] != 5012:
-            return f"Explorer.EXE pid: expected 5012, got {p['process_id']}"
+        if p["pid"] != 5012:
+            return f"Explorer.EXE pid: expected 5012, got {p['pid']}"
         if "Sol" not in p.get("user", ""):
             return f"Explorer.EXE user: expected 'Sol' substring, got {p['user']!r}"
         if p.get("integrity") != "Medium":
@@ -120,18 +122,19 @@ def main() -> int:
         if not edge:
             return "MicrosoftEdgeUpdate.exe not found in process list"
         p = edge[0]
-        if p.get("is_64bit") is not False:
-            return f"MicrosoftEdgeUpdate.exe is_64bit: expected False, got {p.get('is_64bit')!r}"
+        if p.get("is_64_bit") is not False:
+            return f"MicrosoftEdgeUpdate.exe is_64_bit: expected False, got {p.get('is_64_bit')!r}"
         if p.get("company") != "Microsoft Corporation":
             return f"MicrosoftEdgeUpdate.exe company: expected 'Microsoft Corporation', got {p.get('company')!r}"
         return True
 
-    # --- Verify process modules (lsass should have modules) ---
+    # --- Verify process modules via process_modules() API ---
     def test_process_modules():
         lsass = [p for p in procs if p["process_name"] == "lsass.exe"]
         if not lsass:
             return "lsass.exe not found"
-        mods = lsass[0].get("modules", [])
+        proc_idx = lsass[0]["process_index"]
+        mods = reader.process_modules(proc_idx)
         if len(mods) < 5:
             return f"lsass.exe modules: expected at least 5, got {len(mods)}"
         m = mods[0]
@@ -156,12 +159,12 @@ def main() -> int:
         if not ss:
             return "smartscreen.exe not found in process list"
         p = ss[0]
-        if p["process_id"] != 7020:
-            return f"smartscreen.exe pid: expected 7020, got {p['process_id']}"
+        if p["pid"] != 7020:
+            return f"smartscreen.exe pid: expected 7020, got {p['pid']}"
         if p.get("integrity") != "Medium":
             return f"smartscreen.exe integrity: expected 'Medium', got {p.get('integrity')!r}"
-        if p.get("session_number") != 1:
-            return f"smartscreen.exe session: expected 1, got {p.get('session_number')!r}"
+        if p.get("session") != 1:
+            return f"smartscreen.exe session: expected 1, got {p.get('session')!r}"
         return True
 
     tests = [
