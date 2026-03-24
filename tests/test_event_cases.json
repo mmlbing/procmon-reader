@@ -2782,7 +2782,7 @@
               "category": "",
               "detail": {
                 "SyncType": "SyncTypeCreateSection",
-                "PageProtection": "PAGE_EXECUTE"
+                "PageProtection": "PAGE_EXECUTE_READWRITE|PAGE_NOCACHE"
               }
             }
           },
@@ -3185,7 +3185,7 @@
               "category": "",
               "detail": {
                 "SyncType": "SyncTypeCreateSection",
-                "PageProtection": "PAGE_EXECUTE"
+                "PageProtection": "PAGE_EXECUTE_READWRITE|PAGE_NOCACHE"
               }
             }
           },
@@ -3664,7 +3664,7 @@
               "detail": {
                 "Desired Access": "Read Attributes, Synchronize",
                 "Disposition": "Open",
-                "Options": "Non-Directory File, Open For Backup, Open Requiring Oplock, Open Reparse Point",
+                "Options": "Non-Directory File, Open For Backup, Open Reparse Point, Open Requiring Oplock",
                 "Attributes": "n/a",
                 "ShareMode": "Read, Write, Delete",
                 "AllocationSize": "n/a",
