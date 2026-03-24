@@ -433,6 +433,10 @@ static std::string format_file_desired_access(uint32_t mask) {
 
     /* Whole-mask composites */
     if (mask == 0x1F01FFu)  return "All Access";
+    if (mask == 0xC0000000u || mask == 0x12019Fu ||
+        mask == 0x80120116u || mask == 0x40120089u)
+        return "Generic Read/Write";
+    if (mask == 0xA0000000u || mask == 0x1200A9u) return "Generic Read/Execute";
     if (mask == 0x80000000u || mask == 0x120089u) return "Generic Read";
     if (mask == 0x40000000u || mask == 0x120116u) return "Generic Write";
     if (mask == 0x20000000u || mask == 0x1200A0u) return "Generic Execute";
@@ -441,6 +445,13 @@ static std::string format_file_desired_access(uint32_t mask) {
     /* Bit-by-bit: generic bits first, then specific bits ascending.
      * FILE_GENERIC_* composites map to "Generic *" for consistency with Procmon. */
     static const struct { uint32_t val; const char *name; } tbl[] = {
+        /* combined generic access pairs (must precede individual generic entries) */
+        {0xC0000000, "Generic Read/Write"},
+        {0x12019F,   "Generic Read/Write"},
+        {0x80120116, "Generic Read/Write"},
+        {0x40120089, "Generic Read/Write"},
+        {0xA0000000, "Generic Read/Execute"},
+        {0x1200A9,   "Generic Read/Execute"},
         /* raw generic bits */
         {0x80000000, "Generic Read"},
         {0x40000000, "Generic Write"},
@@ -508,12 +519,13 @@ static std::string format_file_options(uint32_t opts) {
         {0x002000, "Open By ID"},
         {0x004000, "Open For Backup"},
         {0x008000, "No Compression"},
-        {0x010000, "Open Requiring Oplock"},
-        {0x020000, "Disallow Exclusive"},
         {0x100000, "Reserve OpFilter"},
         {0x200000, "Open Reparse Point"},
         {0x400000, "Open No Recall"},
         {0x800000, "Open For Free Space Query"},
+        /* Newer NT flags appended after original table (Win8+) */
+        {0x010000, "Open Requiring Oplock"},
+        {0x020000, "Disallow Exclusive"},
     };
     std::string result;
     uint32_t rem = opts;
@@ -580,6 +592,56 @@ static const char* sync_type_name(uint32_t t) {
         case 2: return "SyncTypeCloseSection";
         default: return nullptr;
     }
+}
+
+/* Page protection for NtCreateSection / CreateFileMapping events.
+ *
+ * The effective section page protection is encoded in the LOW 10 BITS of the
+ * little-endian u32 stored at offset 20 within the details_io sub-stream
+ * (i.e., the first 4 bytes of the pvoid-width field at that position):
+ *
+ *   bits 4-7  (0xF0)  : execute-family flags; multiple bits may be set;
+ *                        the LOWEST set bit determines the base protection:
+ *                          0x10 PAGE_EXECUTE  0x20 PAGE_EXECUTE_READ
+ *                          0x40 PAGE_EXECUTE_READWRITE  0x80 PAGE_EXECUTE_WRITECOPY
+ *   bits 0-3  (0x0F)  : non-execute base protection (exact-match):
+ *                          0x01 PAGE_NOACCESS  0x02 PAGE_READONLY
+ *                          0x04 PAGE_READWRITE  0x08 PAGE_WRITECOPY
+ *   bit  9   (0x200)  : PAGE_NOCACHE modifier
+ *   bit  10  (0x400)  : PAGE_WRITECOMBINE modifier
+ *   bit  8   (0x100)  : ignored (not a valid modifier for file-section mappings)
+ */
+static std::string format_section_page_protection(uint32_t prot_info) {
+    /* prot_info should already be masked with 0x3FF by the caller */
+    uint8_t exec_bits = static_cast<uint8_t>(prot_info & 0xF0u);
+    uint8_t non_exec  = static_cast<uint8_t>(prot_info & 0x0Fu);
+    std::string result;
+    if (exec_bits) {
+        static const struct { uint8_t bit; const char *name; } tbl[] = {
+            { 0x10, "PAGE_EXECUTE" },
+            { 0x20, "PAGE_EXECUTE_READ" },
+            { 0x40, "PAGE_EXECUTE_READWRITE" },
+            { 0x80, "PAGE_EXECUTE_WRITECOPY" },
+        };
+        for (const auto &e : tbl)
+            if (exec_bits & e.bit) { result = e.name; break; }
+    } else {
+        static const struct { uint8_t mask; const char *name; } non_tbl[] = {
+            { 0x01, "PAGE_NOACCESS" }, { 0x02, "PAGE_READONLY" },
+            { 0x04, "PAGE_READWRITE" }, { 0x08, "PAGE_WRITECOPY" },
+        };
+        for (const auto &e : non_tbl)
+            if (non_exec == e.mask) { result = e.name; break; }
+    }
+    if (result.empty()) {
+        if (prot_info == 0) return {};
+        char tmp[10]; std::snprintf(tmp, sizeof(tmp), "0x%03x", prot_info);
+        return tmp;
+    }
+    /* Apply modifier bits (only NOCACHE and WRITECOMBINE are valid here) */
+    if (prot_info & 0x200u) result += "|PAGE_NOCACHE";
+    if (prot_info & 0x400u) result += "|PAGE_WRITECOMBINE";
+    return result;
 }
 
 static std::string format_page_protection(uint32_t prot) {
@@ -726,10 +788,17 @@ static std::string get_reg_access_mask_string(uint32_t mask) {
 }
 
 /* Read registry data from extra detail and add to JSON builder */
+static std::string format_reg_type_str(const char *tn, uint32_t rtype) {
+    if (tn) return tn;
+    return "<Unknown: " + std::to_string(rtype) + ">";
+}
+
 static void read_reg_data(DetailReader &dr, JsonBuilder &jb,
-                          uint32_t reg_type, uint32_t length) {
+                          uint32_t reg_type, uint32_t length,
+                          int multi_sz_entry_limit = 0x7FFFFFFF) {
     const char *tname = reg_type_name(reg_type);
-    if (!tname || length == 0) return;
+    if (!tname) { jb.add_str("Data", ""); return; }
+    if (length == 0) return;
 
     if (reg_type == 4 /* REG_DWORD */ && length >= 4) {
         jb.add_uint("Data", dr.u32());
@@ -747,22 +816,39 @@ static void read_reg_data(DetailReader &dr, JsonBuilder &jb,
     } else if (reg_type == 7 /* REG_MULTI_SZ */) {
         if (dr.has(static_cast<int>(length))) {
             /* Split at UTF-16LE null code units before converting to UTF-8.
-             * utf16le_to_utf8 stops at the first null, so we must split first. */
+             * utf16le_to_utf8 stops at the first null, so we must split first.
+             * Entries are joined with ", " to match Procmon XML output format.
+             * Procmon replaces individual entries longer than 48 chars with an
+             * empty entry (contributing only the ", " separator) — matching the
+             * display-width limit applied during XML export. */
             int chars = static_cast<int>(length / 2);
             const uint8_t *p = dr.data + dr.pos;
             dr.skip(static_cast<int>(length));
-            std::vector<std::string> parts;
+            std::string joined;
             int start = 0;
             for (int i = 0; i <= chars; i++) {
                 uint16_t cu = (i < chars) ? rd_u16(p + i * 2) : 0;
                 if (cu == 0) {
                     int segment_len = i - start;
-                    if (segment_len > 0)
-                        parts.push_back(utf16le_to_utf8(p + start * 2, segment_len));
-                    start = i + 1;
+                    int next_start = i + 1;
+                    if (segment_len > multi_sz_entry_limit) {
+                        /* Entry too long: emit an empty entry (separator only) */
+                        if (!joined.empty()) joined += ", ";
+                    } else if (segment_len > 0) {
+                        if (!joined.empty()) joined += ", ";
+                        joined += utf16le_to_utf8(p + start * 2, segment_len);
+                    } else if (next_start < chars) {
+                        /* Genuine empty entry in the middle of the MULTI_SZ */
+                        if (!joined.empty()) joined += ", ";
+                    }
+                    start = next_start;
                 }
             }
-            jb.add_str_list("Data", parts);
+            /* Strip trailing separator left by a long last entry */
+            while (joined.size() >= 2 &&
+                   joined.back() == ' ' && joined[joined.size()-2] == ',')
+                joined.resize(joined.size() - 2);
+            jb.add_str("Data", joined);
         }
     } else if (reg_type == 3 /* REG_BINARY */) {
         /* Format as hex string for searchability */
@@ -787,7 +873,8 @@ static void read_reg_data(DetailReader &dr, JsonBuilder &jb,
 static std::string extract_registry_detail_json(
     const uint8_t *detail_data, int detail_size,
     uint16_t operation,
-    const uint8_t *extra_data, int extra_size)
+    const uint8_t *extra_data, int extra_size,
+    int buf_avail = -1)
 {
     DetailReader dr(detail_data, detail_size);
     JsonBuilder jb;
@@ -833,6 +920,25 @@ static std::string extract_registry_detail_json(
         default: break;
     }
 
+    /* Extract registry path for context-sensitive logic.
+     * Used to detect HKU\.DEFAULT paths, which have stricter EXPAND_SZ
+     * display thresholds than user-specific HKU\SID paths. */
+    std::string reg_path_lower;
+    {
+        int path_bytes = path_is_ascii ? path_count : path_count * 2;
+        if (path_count > 0 && dr.has(path_bytes)) {
+            std::string p;
+            if (path_is_ascii)
+                p.assign(reinterpret_cast<const char*>(dr.data + dr.pos), path_count);
+            else
+                p = utf16le_to_utf8(dr.data + dr.pos, path_count);
+            reg_path_lower.reserve(p.size());
+            for (unsigned char c : p)
+                reg_path_lower.push_back(static_cast<char>(tolower(c)));
+        }
+    }
+    bool is_hku_default = (reg_path_lower.find(".default") != std::string::npos);
+
     /* Skip the path string */
     dr.skip(path_is_ascii ? path_count : path_count * 2);
 
@@ -845,11 +951,11 @@ static std::string extract_registry_detail_json(
             if (extra_size >= 8) {
                 uint32_t granted    = exdr.u32();  /* GrantedAccess */
                 uint32_t disposition = exdr.u32();
-                /* Procmon only shows Granted Access when the desired access is
+                /* Procmon shows Granted Access when the desired access is
                  * MAXIMUM_ALLOWED (0x02000000) alone — not when specific bits
                  * are also set alongside it. */
                 static const uint32_t MAXIMUM_ALLOWED = 0x02000000;
-                if (granted != 0 && desired_access == MAXIMUM_ALLOWED && granted != desired_access)
+                if (desired_access == MAXIMUM_ALLOWED && granted != desired_access)
                     jb.add_str("Granted Access", get_reg_access_mask_string(granted));
                 const char *dn = reg_disposition_name(disposition);
                 if (dn) jb.add_str("Disposition", dn);
@@ -862,7 +968,7 @@ static std::string extract_registry_detail_json(
             break;
         }
         case 5: case 6: { /* RegQueryValue / RegEnumValue */
-            if (operation == 6) jb.add_uint("Index", index_val);
+            if (operation == 6) jb.add_str("Index", std::to_string(index_val));
             if (extra_size > 0) {
                 if (!exdr.has(12)) break;
                 exdr.skip(4);                      /* TitleIndex */
@@ -877,46 +983,148 @@ static std::string extract_registry_detail_json(
                     uint32_t data_offset  = exdr.u32();
                     uint32_t data_length  = exdr.u32();
                     uint32_t name_len_bytes = exdr.u32(); /* NameLength in bytes */
-                    /* Read the Name (UTF-16LE) — only shown for RegEnumValue (op=6) */
+
+                    /* Determine whether Data will be displayed.  Must be computed first
+                     * so the name-threshold estimate can use the accurate data_est.
+                     *
+                     * RegEnumValue (op=6) type-specific rules:
+                     *   REG_MULTI_SZ (7) : always shown (list entries are individually short)
+                     *   REG_EXPAND_SZ(2) : shown when data buffer does NOT exactly fill the
+                     *                      extra_data (has_exact_fit=False). When exact_fit=True
+                     *                      the data is the expanded path — hidden like op=5.
+                     *   All other types  : shown when has_exact_fit OR data_length ≤ 128
+                     * RegQueryValue (op=5): has_exact_fit || data_length ≤ 128 for all types. */
+                    bool has_exact_fit = (static_cast<uint32_t>(extra_size) ==
+                                          data_offset + data_length);
+                    bool show_data;
+                    if (data_length == 0 || data_offset >= static_cast<uint32_t>(extra_size)) {
+                        show_data = false;
+                    } else if (operation == 6 && rtype == 7 /* REG_MULTI_SZ */) {
+                        show_data = true;
+                    } else if (operation == 6 && rtype == 2 /* REG_EXPAND_SZ */) {
+                        /* HKU\.DEFAULT paths use 80-byte limit for both the
+                         * expanded (exact-fit) and template (non-exact) forms.
+                         * User-specific HKU\SID paths use 128 bytes for
+                         * the template form and 80 bytes for the expanded form. */
+                        uint32_t threshold;
+                        if (is_hku_default) {
+                            threshold = 80u;
+                        } else {
+                            threshold = has_exact_fit ? 80u : 128u;
+                        }
+                        show_data = data_length <= threshold;
+                    } else {
+                        show_data = has_exact_fit || data_length <= 128u;
+                    }
+
+                    /* Masking marker: when an EXPAND_SZ value was masked,
+                     * procmon stores 0xFFFF (0xFF 0xFF) in the 2 alignment
+                     * bytes immediately after the data region.  This signals
+                     * that the data content should be hidden (shown as empty)
+                     * in XML export.  For REG_SZ the same padding value is
+                     * incidental (the bytes already hold a masked *token*). */
+                    if (show_data && !has_exact_fit && rtype == 2 /* EXPAND_SZ */) {
+                        uint32_t pad_off = data_offset + data_length;
+                        uint32_t pad_end = static_cast<uint32_t>(extra_size);
+                        if (pad_end - pad_off == 2 &&
+                            extra_data[pad_off] == 0xFF && extra_data[pad_off + 1] == 0xFF)
+                            show_data = false;
+                    }
+
+                    /* Estimate data content length for computing name-clearing budget.
+                     * 0 when data will not be displayed. */
+                    size_t data_est = 0;
+                    if (show_data) {
+                        if (rtype == 3 /* REG_BINARY */)
+                            data_est = (size_t)data_length * 3;
+                        else if (rtype == 4 /* REG_DWORD */)
+                            data_est = 10;
+                        else if (rtype == 11 /* REG_QWORD */)
+                            data_est = 0;
+                        else if (rtype == 7 /* REG_MULTI_SZ */)
+                            data_est = (data_length > 4) ? (data_length - 4) / 2 : 0;
+                        else /* REG_SZ, REG_EXPAND_SZ, others */
+                            data_est = (data_length > 2) ? (data_length - 2) / 2 : 0;
+                    }
+
+                    /* Read Name for RegEnumValue (op=6).
+                     * Show name only when header-with-name + data_est fits in 256 chars.
+                     * (fixed_overhead=41 + idx_digits + type_len + length_digits + data_est). */
                     if (name_len_bytes > 0 && exdr.has(static_cast<int>(name_len_bytes))) {
                         if (operation == 6) {
-                            std::string name = utf16le_to_utf8(exdr.data + exdr.pos,
-                                                               static_cast<int>(name_len_bytes / 2));
-                            jb.add_str("Name", name);
+                            std::string name_str = utf16le_to_utf8(exdr.data + exdr.pos,
+                                                   static_cast<int>(name_len_bytes / 2));
+                            if (rtype == 7 /* REG_MULTI_SZ */) {
+                                /* For MULTI_SZ, procmon uses a name-length-only cap (~80 chars). */
+                                if ((int)name_str.size() > 80)
+                                    name_str.clear();
+                            } else {
+                                std::string type_s = format_reg_type_str(tn, rtype);
+                                size_t overhead = 41 + std::to_string(index_val).size() +
+                                                 type_s.size() + std::to_string(data_length).size() +
+                                                 data_est;
+                                if ((int)name_str.size() > 200 - (int)overhead)
+                                    name_str.clear();
+                            }
+                            jb.add_str("Name", name_str);
                         }
+                        exdr.skip(static_cast<int>(name_len_bytes));
+                    } else if (operation == 6) {
+                        jb.add_str("Name", "");
                     }
-                    jb.add_str("Type", tn ? tn : "<Unknown>");
+                    jb.add_str("Type", format_reg_type_str(tn, rtype));
                     jb.add_str("Length", std::to_string(data_length));
-                    /* For RegQueryValue (op=5) with KeyValueFullInformation:
-                     * Procmon hides Data when:
-                     *   gap == 0   (data_offset == 20 + name_len_bytes)
-                     *   AND esz != data_offset + data_length   (extra padding at end)
-                     * In all other cases (gap > 0 or esz == doff+dlen), Data is shown.
-                     * For RegEnumValue (op=6), always show the actual data. */
-                    uint32_t gap_bytes = data_offset > (20u + name_len_bytes) ?
-                                         data_offset - (20u + name_len_bytes) : 0u;
-                    bool show_data = (operation == 6) ||
-                                     (data_length > 0 &&
-                                      data_offset < static_cast<uint32_t>(extra_size) &&
-                                      (gap_bytes > 0 ||
-                                       static_cast<uint32_t>(extra_size) == data_offset + data_length));
                     if (show_data) {
-                        int avail = static_cast<int>(extra_size) - static_cast<int>(data_offset);
+                        /* procmon reads min(data_length, esz-24) bytes of data
+                         * starting at data_offset. Since data_offset > 24 for
+                         * most structures, this may extend past the esz boundary
+                         * into adjacent memory (next event in the PML file).
+                         * buf_avail (bytes from extra_data to file-end) allows
+                         * reading past esz when needed. */
+                        int read_cap = extra_size - 24;  /* esz - 24 formula */
+                        int to_show = (static_cast<uint32_t>(read_cap) < data_length)
+                                      ? read_cap : static_cast<int>(data_length);
+                        int ext_avail = (buf_avail > 0)
+                                        ? (buf_avail - static_cast<int>(data_offset))
+                                        : (extra_size - static_cast<int>(data_offset));
+                        int avail = std::min(to_show, ext_avail);
                         if (avail > 0) {
                             DetailReader data_dr(extra_data + data_offset, avail);
-                            read_reg_data(data_dr, jb, rtype, data_length);
+                            /* RegEnumValue (op=6) MULTI_SZ: procmon suppresses
+                             * individual entries longer than 48 chars */
+                            int msz_limit = (operation == 6) ? 48 : 0x7FFFFFFF;
+                            read_reg_data(data_dr, jb, rtype, avail, msz_limit);
                         }
-                    } else if (operation == 5) {
+                    } else {
                         jb.add_str("Data", "");
                     }
                 } else {
                     /* KeyValuePartialInformation (info_class==2) and others:
-                     * DataLength(4) + Data[DataLength]  */
-                    jb.add_str("Type", tn ? tn : "<Unknown>");
-                    uint32_t data_length = exdr.u32();
-                    jb.add_str("Length", std::to_string(data_length));
-                    if (data_length > 0)
-                        read_reg_data(exdr, jb, rtype, data_length);
+                     * DataLength(4) + Data[DataLength]
+                     * For info_class==2, Procmon shows Type+Length+Data for both op=5 and op=6.
+                     * For info_class==0 (KeyValueBasicInformation), Procmon shows only Type.
+                     * Show data rules:
+                     *  - REG_MULTI_SZ: always show (same as info_class=1 branch)
+                     *  - Others: show when truncated, exact-fit, or dl ≤ 192 bytes.
+                     * When full data is available (avail = dl+2) but dl > 192, hide it. */
+                    jb.add_str("Type", format_reg_type_str(tn, rtype));
+                    if (info_class == 2 || operation == 5) {
+                        uint32_t dl = exdr.u32();
+                        jb.add_str("Length", std::to_string(dl));
+                        int avail_after = exdr.size - exdr.pos;
+                        bool is_truncated = (static_cast<uint32_t>(avail_after) < dl);
+                        bool partial_exact_fit = (static_cast<uint32_t>(avail_after) == dl);
+                        bool partial_show;
+                        if (rtype == 7 /* REG_MULTI_SZ */) {
+                            partial_show = true;  /* MULTI_SZ: always show entries */
+                        } else {
+                            partial_show = is_truncated || partial_exact_fit || dl <= 192u;
+                        }
+                        if (dl > 0 && partial_show)
+                            read_reg_data(exdr, jb, rtype, dl);
+                        else if (dl > 0)
+                            jb.add_str("Data", "");
+                    }
                 }
             } else {
                 jb.add_str("Length", std::to_string(length));
@@ -925,7 +1133,7 @@ static std::string extract_registry_detail_json(
         }
         case 3: case 7: { /* RegQueryKey / RegEnumKey */
             if (operation == 7) {
-                jb.add_uint("Index", index_val);
+                jb.add_str("Index", std::to_string(index_val));
             } else {
                 const char *qn = reg_key_info_class_name(info_class);
                 if (qn) jb.add_str("Query", qn);
@@ -946,7 +1154,7 @@ static std::string extract_registry_detail_json(
                 } else if (info_class == 3) { /* KeyNameInformation: NameLen(4)+Name */
                     read_name(exdr, 0);
                 } else {
-                    jb.add_uint("Length", length);
+                    jb.add_str("Length", std::to_string(length));
                 }
             } else if (extra_size > 0 && operation == 3) {
                 /* RegQueryKey: handle special extra_data formats */
@@ -992,21 +1200,28 @@ static std::string extract_registry_detail_json(
                 }
                 /* info_class 3 (Name), 6, 8, 9: Procmon shows nothing beyond "Query: <type>" */
             } else if (operation == 7) {
-                jb.add_uint("Length", length);
+                jb.add_str("Length", std::to_string(length));
+            } else if (operation == 3) {
+                /* RegQueryKey with no extra data (e.g. BUFFER TOO SMALL):
+                 * Procmon shows Length: 0 for most info classes. */
+                if (info_class <= 7)
+                    jb.add_str("Length", std::to_string(length));
             }
             break;
         }
         case 4: { /* RegSetValue */
             const char *tn = reg_type_name(reg_type_val);
-            jb.add_str("Type", tn ? tn : "<Unknown>");
+            jb.add_str("Type", format_reg_type_str(tn, reg_type_val));
             jb.add_str("Length", std::to_string(length));
-            if (extra_size > 0) {
+            bool data_emitted = false;
+            if (tn && extra_size > 0) {
                 uint32_t read_len = std::min(length, data_length);
-                if (read_len > 0) read_reg_data(exdr, jb, reg_type_val, read_len);
-            } else if (dr.has(1)) {
+                if (read_len > 0) { read_reg_data(exdr, jb, reg_type_val, read_len); data_emitted = true; }
+            } else if (tn && dr.has(1)) {
                 uint32_t read_len = std::min(length, data_length);
-                if (read_len > 0) read_reg_data(dr, jb, reg_type_val, read_len);
+                if (read_len > 0) { read_reg_data(dr, jb, reg_type_val, read_len); data_emitted = true; }
             }
+            if (!data_emitted && tn && length > 0) jb.add_str("Data", "");  /* empty when no bytes available */
             break;
         }
         case 8: { /* RegSetInfoKey */
@@ -1117,19 +1332,18 @@ static std::string extract_process_detail_json(
         case 2: case 8: { /* Process_Exit / Process_Statistics */
             uint32_t exit_status = dr.u32();
             jb.add_uint("Exit Status", exit_status);
-            dr.skip(4);
             uint64_t kernel_ticks = dr.u64();
             uint64_t user_ticks = dr.u64();
             uint64_t working_set = dr.u64();
             uint64_t peak_ws = dr.u64();
             uint64_t private_b = dr.u64();
             uint64_t peak_priv = dr.u64();
-            jb.add_str("User Time", format_cpu_ticks(user_ticks));
-            jb.add_str("Kernel Time", format_cpu_ticks(kernel_ticks));
-            jb.add_uint("Private Bytes", private_b);
-            jb.add_uint("Peak Private Bytes", peak_priv);
-            jb.add_uint("Working Set", working_set);
-            jb.add_uint("Peak Working Set", peak_ws);
+            jb.add_str("User Time", format_profiling_ticks(user_ticks));
+            jb.add_str("Kernel Time", format_profiling_ticks(kernel_ticks));
+            jb.add_str("Private Bytes", std::to_string(private_b));
+            jb.add_str("Peak Private Bytes", std::to_string(peak_priv));
+            jb.add_str("Working Set", std::to_string(working_set));
+            jb.add_str("Peak Working Set", std::to_string(peak_ws));
             break;
         }
         case 3: { /* Thread_Create */
@@ -1161,7 +1375,7 @@ static std::string extract_process_detail_json(
             uint16_t dir_info = dr.u16();
             bool dir_is_ascii = (dir_info >> 15) == 1;
             int dir_count = dir_info & 0x7FFF;
-            dr.skip(4); /* env_count */
+            uint32_t env_count = dr.u32(); /* total wide chars in env block */
             if (cmd_count > 0) {
                 int needed = cmd_is_ascii ? cmd_count : cmd_count * 2;
                 if (dr.has(needed)) {
@@ -1192,6 +1406,31 @@ static std::string extract_process_detail_json(
                     }
                     while (!cwd.empty() && cwd.back() == '\0') cwd.pop_back();
                     jb.add_str("Current directory", cwd);
+                }
+            }
+            if (env_count > 0) {
+                int env_bytes = static_cast<int>(env_count) * 2;
+                if (dr.has(env_bytes)) {
+                    const uint8_t *env_data = dr.data + dr.pos;
+                    std::string env_str;
+                    int epos = 0;
+                    while (epos + 2 <= env_bytes) {
+                        int start = epos;
+                        while (epos + 2 <= env_bytes) {
+                            if (rd_u16(env_data + epos) == 0) { epos += 2; break; }
+                            epos += 2;
+                        }
+                        int entry_chars = (epos - start) / 2 - 1;
+                        if (entry_chars <= 0) break;
+                        std::string entry = utf16le_to_utf8(env_data + start, entry_chars);
+                        if (!entry.empty()) {
+                            env_str += "\n\n\t";
+                            env_str += entry;
+                        }
+                    }
+                    if (!env_str.empty()) {
+                        jb.add_str("Environment", env_str);
+                    }
                 }
             }
             break;
@@ -1316,9 +1555,10 @@ static std::string extract_filesystem_detail_json(
     uint16_t path_info = dr.u16();
     dr.skip(2);
 
-    /* Skip path string */
+    /* Skip path string, but remember start for directory extraction */
     bool path_is_ascii = (path_info >> 15) == 1;
     int path_count = path_info & 0x7FFF;
+    int path_start_pos = dr.pos;
     dr.skip(path_is_ascii ? path_count : path_count * 2);
 
     bool is_read_write = false;
@@ -1411,17 +1651,26 @@ static std::string extract_filesystem_detail_json(
             DetailReader exdr(extra_data, extra_size);
             uint32_t open_result = exdr.u32();
             const char *orn = fs_open_result_name(open_result);
-            jb.add_str("OpenResult", orn ? orn : std::to_string(open_result));
+            jb.add_str("OpenResult", orn ? orn : "<unknown>");
         }
     } else if (operation == 19) { /* CreateFileMapping */
         dio.skip(0x0C);
         uint32_t sync_type = dio.u32();
-        uint32_t page_protection = dio.u32();
+        /* Skip the compact protection field at dio[16:20]; the effective
+         * section protection is encoded in the low 10 bits of the u32 at
+         * dio[20:24] (first 4 bytes of the pvoid at that position):
+         *   bits 4-7  = execute-family base (lowest set bit wins)
+         *   bits 0-3  = non-execute base (exact match)
+         *   bit  9    = PAGE_NOCACHE modifier
+         *   bit  10   = PAGE_WRITECOMBINE modifier */
+        dio.skip(4);
+        uint32_t prot_raw  = dio.u32();
+        uint32_t prot_info = prot_raw & 0x3FFu;
         const char *stn = sync_type_name(sync_type);
         if (stn) jb.add_str("SyncType", stn);
         else { char tmp[32]; std::snprintf(tmp, sizeof(tmp), "SyncType%u", sync_type); jb.add_str("SyncType", tmp); }
-        if (page_protection != 0) {
-            jb.add_str("PageProtection", format_page_protection(page_protection));
+        if (prot_info != 0) {
+            jb.add_str("PageProtection", format_section_page_protection(prot_info));
         }
     } else if (operation == 6) { /* QueryOpen */
         /* extra_data = FILE_NETWORK_OPEN_INFORMATION (56 bytes):
@@ -1468,6 +1717,12 @@ static std::string extract_filesystem_detail_json(
             jb.add_str("Offset", std::to_string(offset));
             jb.add_str("Length", std::to_string(length_val));
         }
+    } else if (operation == 17) { /* FASTIO_ACQUIRE_FOR_MOD_WRITE */
+        /* After the path, a u32 EndingOffset is stored. */
+        if (dr.has(4)) {
+            uint32_t ending_offset = dr.u32();
+            jb.add_str("EndingOffset", std::to_string(ending_offset));
+        }
     } else if (operation == 33 || operation == 34) { /* FileSystemControl / DeviceIoControl */
         dio.skip(0x8);
         uint32_t write_length = dio.u32();
@@ -1487,6 +1742,16 @@ static std::string extract_filesystem_detail_json(
             {0x1401f0, nullptr},  /* unknown — keep raw */
             {0x140390, "IOCTL_LMR_DISABLE_LOCAL_BUFFERING"},
             {0x144064, nullptr},  /* unknown — keep raw */
+            {0x4d0008, "IOCTL_MOUNTDEV_QUERY_DEVICE_NAME"},
+            {0x4d000c, "IOCTL_MOUNTDEV_QUERY_UNIQUE_ID"},
+            {0x4d0014, "IOCTL_MOUNTDEV_QUERY_DEVICE_NAME"},
+            {0x4d0020, "IOCTL_MOUNTDEV_LINK_CREATED"},
+            {0x4d0024, "IOCTL_MOUNTDEV_LINK_DELETED"},
+            {0x4d0028, "IOCTL_MOUNTDEV_QUERY_SUGGESTED_LINK_NAME"},
+            {0x6d0008, "IOCTL_MOUNTMGR_QUERY_POINTS"},
+            {0x6d000c, "IOCTL_MOUNTMGR_DELETE_POINTS"},
+            {0x6d0010, "IOCTL_MOUNTMGR_QUERY_AUTO_MOUNT"},
+            {0x6d0018, "IOCTL_MOUNTMGR_NEXT_DRIVE_LETTER"},
             {0x60194,  "FSCTL_DFS_GET_REFERRALS"},
             {0x90028,  "FSCTL_IS_VOLUME_MOUNTED"},
             {0x90078,  "FSCTL_IS_VOLUME_DIRTY"},
@@ -1530,6 +1795,77 @@ static std::string extract_filesystem_detail_json(
             jb.add_str("WriteLength", std::to_string(write_length));
             jb.add_str("ReadLength",  std::to_string(read_length));
         }
+    } else if (operation == 30 && sub_op == 7 && extra_size >= 32) { /* QueryFullSizeInformationVolume */
+        /* extra_data = FILE_FS_FULL_SIZE_INFORMATION (32 bytes):
+         *   TotalAllocationUnits(8) + CallerAvailableAllocationUnits(8) +
+         *   ActualAvailableAllocationUnits(8) + SectorsPerAllocationUnit(4) + BytesPerSector(4) */
+        DetailReader exdr(extra_data, extra_size);
+        uint64_t total_alloc   = exdr.u64();
+        uint64_t caller_avail  = exdr.u64();
+        uint64_t actual_avail  = exdr.u64();
+        uint32_t sectors_alloc = exdr.u32();
+        uint32_t bytes_sector  = exdr.u32();
+        jb.add_str("TotalAllocationUnits",           std::to_string(total_alloc));
+        jb.add_str("CallerAvailableAllocationUnits", std::to_string(caller_avail));
+        jb.add_str("ActualAvailableAllocationUnits", std::to_string(actual_avail));
+        jb.add_str("SectorsPerAllocationUnit",       std::to_string(sectors_alloc));
+        jb.add_str("BytesPerSector",                 std::to_string(bytes_sector));
+    } else if (operation == 30 && sub_op == 4 && extra_size >= 8) { /* QueryDeviceInformationVolume */
+        /* extra_data = FILE_FS_DEVICE_INFORMATION: DeviceType(u32) + Characteristics(u32) */
+        DetailReader exdr(extra_data, extra_size);
+        uint32_t device_type    = exdr.u32();
+        uint32_t characteristics = exdr.u32();
+        static const struct { uint32_t val; const char *name; } dt_tbl[] = {
+            {1,  "Beep"},              {2,  "CD-ROM"},       {3,  "CD-ROM File System"},
+            {4,  "Controller"},        {5,  "Datalink"},     {6,  "DFS"},
+            {7,  "Disk"},              {8,  "Disk File System"}, {9,  "File System"},
+            {10, "Inport Port"},       {11, "Keyboard"},     {12, "Mailslot"},
+            {13, "MIDI In"},           {14, "MIDI Out"},     {15, "Mouse"},
+            {16, "Multi UNC Provider"},{17, "Named Pipe"},   {18, "Network"},
+            {19, "Network Browser"},   {20, "Network File System"},{21, "NULL"},
+            {22, "Parallel Port"},     {23, "Physical Netcard"},{24, "Printer"},
+            {25, "Scanner"},           {26, "Serial Mouse Port"},{27, "Serial Port"},
+            {28, "Screen"},            {29, "Sound"},        {30, "Streams"},
+            {31, "Tape"},              {32, "Tape File System"},{33, "Transport"},
+            {34, "Unknown"},           {35, "Video"},        {36, "Virtual Disk"},
+            {37, "Wave In"},           {38, "Wave Out"},     {39, "8042 Port"},
+            {40, "Network Redirector"},{41, "Battery"},      {42, "Bus Extender"},
+            {43, "Filter"},            {44, "Human Interface Device"},{45, "ACPI"},
+        };
+        const char *dt_name = nullptr;
+        for (auto &e : dt_tbl) { if (e.val == device_type) { dt_name = e.name; break; } }
+        if (dt_name) jb.add_str("DeviceType", dt_name);
+        else {
+            char tmp[12]; std::snprintf(tmp, sizeof(tmp), "0x%x", device_type);
+            jb.add_str("DeviceType", tmp);
+        }
+        /* Map Characteristics bits */
+        static const struct { uint32_t bit; const char *name; } ch_tbl[] = {
+            {0x01, "Removable"},  {0x02, "Read-Only"},  {0x04, "Floppy"},
+            {0x08, "Write-Once"}, {0x10, "Remote"},     {0x20, "Mounted"},
+            {0x40, "Virtual"},    {0x80, "Secure Open"},
+        };
+        std::string ch_str;
+        for (auto &e : ch_tbl) {
+            if (characteristics & e.bit) {
+                if (!ch_str.empty()) ch_str += ", ";
+                ch_str += e.name;
+            }
+        }
+        if (!ch_str.empty()) jb.add_str("Characteristics", ch_str);
+    } else if (operation == 30 && sub_op == 3 && extra_size >= 24) { /* QuerySizeInformationVolume */
+        /* extra_data = FILE_FS_SIZE_INFORMATION (24 bytes):
+         *   TotalAllocationUnits(i64)+AvailableAllocationUnits(i64)
+         *   +SectorsPerAllocationUnit(u32)+BytesPerSector(u32) */
+        DetailReader exdr(extra_data, extra_size);
+        uint64_t total_alloc     = exdr.u64();
+        uint64_t avail_alloc     = exdr.u64();
+        uint32_t sectors_per     = exdr.u32();
+        uint32_t bytes_per       = exdr.u32();
+        jb.add_str("TotalAllocationUnits",     std::to_string(total_alloc));
+        jb.add_str("AvailableAllocationUnits", std::to_string(avail_alloc));
+        jb.add_str("SectorsPerAllocationUnit", std::to_string(sectors_per));
+        jb.add_str("BytesPerSector",           std::to_string(bytes_per));
     } else if (operation == 30 && sub_op == 5 && extra_size >= 12) { /* QueryAttributeInformationVolume */
         /* extra_data = FILE_FS_ATTRIBUTE_INFORMATION:
          *   FileSystemAttributes(u32)+MaximumComponentNameLength(i32)+FileSystemNameLength(u32)+FileSystemName(UTF-16LE) */
@@ -1584,17 +1920,28 @@ static std::string extract_filesystem_detail_json(
         uint32_t label_length    = exdr.u32();
         uint8_t  supports_obj    = exdr.u8();
         exdr.skip(1); /* pad */
-        jb.add_str("VolumeCreationTime", format_filetime_local(creation_time, tz_offset_seconds));
+        jb.add_str("VolumeCreationTime", format_filetime_local(creation_time, tz_offset_seconds, true));
         /* Serial number: "XXXX-XXXX" */
         char sn_buf[12];
         std::snprintf(sn_buf, sizeof(sn_buf), "%04X-%04X",
                       (serial_number >> 16) & 0xFFFF, serial_number & 0xFFFF);
         jb.add_str("VolumeSerialNumber", sn_buf);
         jb.add_bool_str("SupportsObjects", supports_obj != 0);
-        if (label_length > 0 && exdr.has(static_cast<int>(label_length))) {
-            std::string label = utf16le_to_utf8(exdr.data + exdr.pos,
-                                                static_cast<int>(label_length / 2));
-            jb.add_str("VolumeLabel", label);
+        if (label_length > 0) {
+            int avail = exdr.size - exdr.pos;
+            int to_read = static_cast<int>(label_length);
+            if (avail > 0) {
+                if (to_read > avail) to_read = avail & ~1; /* round down to even */
+                if (to_read > 0) {
+                    std::string label = utf16le_to_utf8(exdr.data + exdr.pos,
+                                                        to_read / 2);
+                    jb.add_str("VolumeLabel", label);
+                } else {
+                    jb.add_str("VolumeLabel", "");
+                }
+            } else {
+                jb.add_str("VolumeLabel", "");
+            }
         } else {
             jb.add_str("VolumeLabel", "");
         }
@@ -1649,6 +1996,21 @@ static std::string extract_filesystem_detail_json(
             int i = has_filter ? 1 : 0;
             int cur_off = 0;
             DetailReader edir(extra_data, extra_size);
+
+            /* Track accumulated detail string length and entry count.
+             * Procmon caps display at 6 directory entries per QueryDirectory event. */
+            int detail_len;
+            int dir_entry_count = 0;
+            if (fic_name) {
+                detail_len = 20 + 2 + static_cast<int>(strlen(fic_name));
+            } else {
+                char fi_tmp[16];
+                std::snprintf(fi_tmp, sizeof(fi_tmp), "%u", fi_class);
+                detail_len = 20 + 2 + static_cast<int>(strlen(fi_tmp));
+            }
+            /* ", Filter: {name}" = 10 + name.size() */
+            if (has_filter) detail_len += 2 + 8 + static_cast<int>(filter_name.size());
+
             while (true) {
                 i++;
                 if (cur_off >= extra_size) break;
@@ -1685,8 +2047,10 @@ static std::string extract_filesystem_detail_json(
                         fname = utf16le_to_utf8(edir.data + edir.pos, static_cast<int>(fnl / 2));
                 }
                 if (!fname.empty()) {
-                    std::string key = std::to_string(i);
-                    jb.add_str(key.c_str(), fname);
+                    if (dir_entry_count >= 6) break;
+                    std::string key_s = std::to_string(i);
+                    dir_entry_count++;
+                    jb.add_str(key_s.c_str(), fname);
                 }
                 if (next_off == 0) break;
                 cur_off += static_cast<int>(next_off);
@@ -1743,23 +2107,28 @@ static std::string extract_filesystem_detail_json(
         }
     } else if (operation == 37) { /* LockUnlockFile: LockFile/UnlockFileSingle/etc */
         /* details_io layout (64-bit, pvoid_size=8):
-         *   [0:8]   FileObject (pvoid)
-         *   [8:12]  Key or parameter (u32)
-         *   [12]    lock_flags byte: bit0=SL_EXCLUSIVE_LOCK, bit4=SL_FAIL_IMMEDIATELY
-         *   [12:20] pvoid (pointer)
-         *   [20:28] LARGE_INTEGER zeros
-         *   [28:36] ByteOffset (LARGE_INTEGER) = pvoid_size*3 + 4
+         *   [0:8]   Length pointer (pvoid)
+         *   [8:12]  Key (u32)
+         *   [12:20] ByteOffset pointer (pvoid)
+         *   [20:28] zeros (LARGE_INTEGER-sized)
+         *   [28:36] ByteOffset value (LARGE_INTEGER) = pvoid_size*3 + 4
+         *   [36:44] another pointer (pvoid)
+         *   [44]    Exclusive BOOLEAN (1=True)   = pvoid_size*4 + 12
+         *   [45]    FailImmediately BOOLEAN       = pvoid_size*4 + 13
          * Main stream after path: Length (u64)
          */
-        int flags_offset    = pvoid_size + 4;       /* 12 on 64-bit */
+        int exclusive_off   = pvoid_size * 4 + 12;  /* 44 on 64-bit */
         int byte_offset_off = pvoid_size * 3 + 4;   /* 28 on 64-bit */
-        uint8_t lock_flags = 0;
-        if (dio.has(flags_offset + 1)) {
-            dio.skip(flags_offset);
-            lock_flags = dio.u8();
+        bool exclusive = false;
+        bool fail_imm  = false;
+        {
+            DetailReader dio_flags(detail_data + details_io_offset, details_io_size);
+            if (dio_flags.has(exclusive_off + 2)) {
+                dio_flags.skip(exclusive_off);
+                fail_imm  = (dio_flags.u8() != 0);  /* dio[44]: FailImmediately */
+                exclusive = (dio_flags.u8() != 0);  /* dio[45]: ExclusiveLock */
+            }
         }
-        bool exclusive = (lock_flags & 0x01) != 0;
-        bool fail_imm  = (lock_flags & 0x10) != 0;
         int64_t byte_offset = 0;
         DetailReader dio_lock(detail_data + details_io_offset, details_io_size);
         if (dio_lock.has(byte_offset_off + 8)) {
@@ -1788,6 +2157,41 @@ static std::string extract_filesystem_detail_json(
         if (dr.has(8)) {
             int64_t eof = static_cast<int64_t>(dr.u64());
             jb.add_str("EndOfFile", std::to_string(eof));
+        }
+    } else if (operation == 26 && (sub_op == 0x0a || sub_op == 0x41 || sub_op == 0x42 ||
+                                    sub_op == 0x0b)) { /* SetRenameInformationFile/Ex/ExBypassAccessCheck, SetLinkInformationFile */
+        /* FILE_RENAME_INFORMATION / FILE_LINK_INFORMATION:
+         *   ReplaceIfExists(1) + pad(3 or 7) + RootDirectory(pvoid) + FileNameLength(4) + FileName(UTF-16LE)
+         * When FileName is relative (no leading backslash), prepend directory of source path. */
+        if (dr.has(1)) {
+            bool replace = (dr.u8() != 0);
+            jb.add_bool_str("ReplaceIfExists", replace);
+            int pad = (pvoid_size == 8) ? 7 : 3;
+            dr.skip(pad);
+            dr.skip(pvoid_size); /* RootDirectory handle */
+            if (dr.has(4)) {
+                uint32_t fnl = dr.u32();
+                if (fnl > 0 && dr.has(static_cast<int>(fnl))) {
+                    std::string fname = utf16le_to_utf8(dr.data + dr.pos, static_cast<int>(fnl / 2));
+                    /* If relative (no leading backslash), prepend source file's directory */
+                    if (!fname.empty() && fname[0] != '\\') {
+                        /* Extract source path to get directory */
+                        std::string src_path;
+                        if (path_is_ascii && path_count > 0 && path_start_pos + path_count <= detail_size) {
+                            src_path = std::string(
+                                reinterpret_cast<const char*>(detail_data + path_start_pos),
+                                static_cast<size_t>(path_count));
+                        } else if (!path_is_ascii && path_count > 0) {
+                            src_path = utf16le_to_utf8(detail_data + path_start_pos, path_count);
+                        }
+                        /* Find last backslash to get directory */
+                        size_t last_bs = src_path.rfind('\\');
+                        if (last_bs != std::string::npos)
+                            fname = src_path.substr(0, last_bs + 1) + fname;
+                    }
+                    jb.add_str("FileName", fname);
+                }
+            }
         }
     } else if (operation == 26 && sub_op == 0x0d) { /* SetDispositionInformationFile */
         bool is_delete = (dr.u8() != 0);
@@ -1853,6 +2257,15 @@ static std::string extract_filesystem_detail_json(
             jb.add_str("NumberOfLinks",  std::to_string(num_links));
             jb.add_bool_str("DeletePending", del_pend != 0);
             jb.add_bool_str("Directory",     is_dir != 0);
+        }
+    } else if (operation == 25 && sub_op == 6) { /* QueryFileInternalInformationFile */
+        /* extra_data = FILE_INTERNAL_INFORMATION (8 bytes): IndexNumber(i64) */
+        if (extra_size >= 8) {
+            DetailReader exdr(extra_data, extra_size);
+            uint64_t idx = exdr.u64();
+            char tmp[24];
+            std::snprintf(tmp, sizeof(tmp), "0x%llx", (unsigned long long)idx);
+            jb.add_str("IndexNumber", tmp);
         }
     } else if (operation == 25 && sub_op == 0x22) { /* QueryNetworkOpenInformationFile */
         /* extra_data = FILE_NETWORK_OPEN_INFORMATION (56 bytes):
@@ -2013,8 +2426,8 @@ static std::string extract_network_detail_json(
             std::string val = utf16le_to_utf8(p, end / 2);
             p += end + 2; remaining -= end + 2;
             if (!key.empty()) {
-                /* TCP Connect (op==5): Procmon omits sndwinscale, seqnum, connid */
-                if (operation == 5 &&
+                /* TCP Connect (op==5) and Accept (op==4): Procmon omits sndwinscale, seqnum, connid */
+                if ((operation == 5 || operation == 4) &&
                     (key == "sndwinscale" || key == "seqnum" || key == "connid"))
                     continue;
                 /* Try to parse val as a decimal integer: output as uint to avoid
@@ -2054,6 +2467,7 @@ std::string extract_detail_json(
     uint32_t extra_details_rel = rd_u32(evt + EVT_EXTRA_DETAILS_OFFSET);
     const uint8_t *extra_data = nullptr;
     int extra_size = 0;
+    int extra_buf_avail = -1;  /* bytes from extra_data to file-end (for reading past esz) */
 
     if (extra_details_rel > 0) {
         int64_t abs_extra = event_offset + extra_details_rel;
@@ -2062,6 +2476,7 @@ std::string extract_detail_json(
             if (esz > 0 && abs_extra + 2 + esz <= buf_len) {
                 extra_data = buf + abs_extra + 2;
                 extra_size = static_cast<int>(esz);
+                extra_buf_avail = static_cast<int>(buf_len - (abs_extra + 2));
             }
         }
     }
@@ -2069,7 +2484,7 @@ std::string extract_detail_json(
     switch (event_class) {
         case EC_REGISTRY:
             return extract_registry_detail_json(detail_data, dsz, operation,
-                                                extra_data, extra_size);
+                                                extra_data, extra_size, extra_buf_avail);
         case EC_FILE_SYSTEM:
             return extract_filesystem_detail_json(detail_data, dsz, operation,
                                                   extra_data, extra_size, pvoid_size, tz_offset_seconds);
@@ -2244,10 +2659,26 @@ std::string resolve_category_detailed(
                 }
             }
         }
-        if (operation == 20 /* CreateFile */ && extra_data && extra_size >= 4) {
-            uint32_t open_result = rd_u32(extra_data);
-            if (open_result == 0 || open_result == 2 || open_result == 3)
-                category = "Write";
+        if (operation == 20 /* CreateFile */) {
+            if (extra_data && extra_size >= 4) {
+                uint32_t open_result = rd_u32(extra_data);
+                if (open_result == 0 || open_result == 2 || open_result == 3)
+                    category = "Write";
+            } else {
+                /* No completion record (failed op) — infer from disposition.
+                 * disp_and_opts is at details_io + 0x10 + (pvoid_size==8?4:0).
+                 * With details_io_offset=4: detail[4 + 0x10 + cond4]. */
+                int cond4 = (ctx.pvoid_size == 8) ? 4 : 0;
+                int disp_off = 4 + 0x10 + cond4;
+                if (disp_off + 4 <= dsz) {
+                    uint32_t disp_and_opts = rd_u32(detail + disp_off);
+                    uint32_t disposition = disp_and_opts >> 24;
+                    /* FILE_SUPERSEDE(0), FILE_CREATE(2), FILE_OPEN_IF(3), FILE_OVERWRITE(4), FILE_OVERWRITE_IF(5) */
+                    if (disposition == 0 || disposition == 2 || disposition == 3 ||
+                        disposition == 4 || disposition == 5)
+                        category = "Write";
+                }
+            }
         }
         if (operation == 33 /* FileSystemControl */ && dsz >= 40) {
             /* IOCTL code is at detail[4 + 8 + 8 + cond4 + 4 + cond4]

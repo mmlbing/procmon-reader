@@ -63,14 +63,6 @@ COMPARE_FIELDS = {
 }
 
 
-# For these operations, skip the 'detail' field comparison.
-# TODO: find and fix the root causes of these mismatches so that we can compare 'detail' for all operations.
-SKIPPED_OPERATIONS = {
-    'CreateFileMapping',
-    'Process Start',
-}
-
-
 # ===========================================================================
 # Helper: locate procmon.exe
 # ===========================================================================
@@ -235,35 +227,53 @@ def normalize_pair(field: str, pml_val, xml_val: str):
     # ---- detail: PML returns dict (or JSON string), XML uses "Key: Value, Key: Value" ----
     if field == 'detail':
         try:
-            if isinstance(pml_val, dict):
-                data = pml_val
-            else:
-                data = json.loads(pml_str)
-            if isinstance(data, dict):
-                reg_type = data.get('Type', '')
-                parts = []
-                for k, v in data.items():
-                    if k == 'Data' and reg_type == 'REG_BINARY' and isinstance(v, str):
-                        # PML: continuous lowercase hex → XML: space-separated uppercase pairs
-                        h = v.upper()
-                        parts.append(f"{k}: {' '.join(h[i:i+2] for i in range(0, len(h), 2))}")
-                    elif isinstance(v, list):
-                        # REG_MULTI_SZ list → XML: comma-space joined values
-                        parts.append(f"{k}: {', '.join(str(x) for x in v)}")
-                    elif isinstance(v, (int, float)):
-                        # add_uint/add_int: XML does NOT use thousands separators
+            if not isinstance(pml_val, dict):
+                pass
+
+            data = pml_val
+            parts = []
+            reg_type = data.get('Type', '') if isinstance(data, dict) else ''
+            for k, v in data.items():
+                if k == 'Data' and reg_type == 'REG_BINARY' and isinstance(v, str):
+                    # PML stores binary as continuous lowercase hex; XML uses
+                    # space-separated uppercase byte pairs.
+                    # Example (Logfile_masked.pml #3, RegQueryValue):
+                    #   HKLM\System\CurrentControlSet\Control\WMI\Security\9e814aad-...
+                    #   PML: Data: 01000480140000002400000000000000
+                    #   XML: Data: 01 00 04 80 14 00 00 00 24 00 00 00 00 00 00 00
+                    h = v.upper()
+                    pml_hex_str = ' '.join(h[i:i+2] for i in range(0, len(h), 2))
+                    _binary_pml_hex = pml_hex_str
+                    parts.append(f"{k}: {pml_hex_str}")
+                elif isinstance(v, str):
+                    # add_str: XML uses thousands separators for numeric size/length
+                    # fields, but NOT for Data or Name (actual string content).
+                    # Example (Logfile_masked.pml #2, WriteFile):
+                    #   C:\ProgramData\Microsoft\GroupPolicy\...\ntuser_*.pol
+                    #   PML: Offset: 11262, Length: 2
+                    #   XML: Offset: 11,262, Length: 2
+                    if k in ('Data', 'Name'):
                         parts.append(f"{k}: {v}")
-                    elif isinstance(v, str):
-                        # add_str: XML uses thousands separators for plain decimal integers
+                    else:
                         try:
-                            parts.append(f"{k}: {format(int(v), ',')}")
+                            int_v = int(v)
+                            if str(int_v) == v:  # canonical integer (no leading zeros)
+                                parts.append(f"{k}: {format(int_v, ',')}")
+                            else:
+                                parts.append(f"{k}: {v}")
                         except ValueError:
                             parts.append(f"{k}: {v}")
-                    else:
-                        parts.append(f"{k}: {v}")
-                pml_str = ', '.join(parts).rstrip()
+                else:
+                    parts.append(f"{k}: {v}")
+            pml_str = ', '.join(parts).rstrip()
         except Exception:
             pass
+        # Procmon XML encodes strings in UTF-16, replacing each half of a non-BMP
+        # surrogate pair with '_' (→ two underscores per non-BMP char) and replacing
+        # C0/C1 control characters (except \t \n \r) with '_'.  Apply the same
+        # substitution to the PML string so the two sides compare correctly.
+        # Note: this file (Logfile_masked.pml) contains no such characters in the
+        # detail field within the tested range, so this path is defensive.
         pml_str = _replace_non_bmp_with_underscores(pml_str)
         return pml_str, xml_str
 
@@ -335,19 +345,17 @@ def compare_all_events(
             break
 
         # Compare each field
-        event_rows = []   # [(field, pml_norm, xml_norm, matched, skipped)]
+        event_rows = []   # [(field, pml_norm, xml_norm, matched)]
         mismatch_count = 0
         operation = pml_ev.get('operation', '')
-        skip_detail = operation in SKIPPED_OPERATIONS
 
         for pml_field, xml_tag in COMPARE_FIELDS.items():
             pml_val = pml_ev.get(pml_field)
             xml_val = xml_event.get(xml_tag, '')
 
             pml_norm, xml_norm = normalize_pair(pml_field, pml_val, xml_val)
-            is_skipped = (pml_field == 'detail' and skip_detail)
-            matched = is_skipped or (pml_norm == xml_norm)
-            event_rows.append((pml_field, pml_norm, xml_norm, matched, is_skipped))
+            matched = (pml_norm == xml_norm)
+            event_rows.append((pml_field, pml_norm, xml_norm, matched))
             if not matched:
                 mismatch_count += 1
 
@@ -395,13 +403,11 @@ def _print_event_table(event_idx: int, rows):
     print(sep)
     print(f"  | {hdr_field} | {hdr_pml} | {hdr_xml} |      |")
     print(sep)
-    for field, pml_v, xml_v, matched, skipped in rows:
+    for field, pml_v, xml_v, matched in rows:
         pml_s = str(pml_v)[:pw].ljust(pw)
         xml_s = str(xml_v)[:xw].ljust(xw)
         f_s = field.ljust(fw)
-        if skipped:
-            mark = ' SKIP'
-        elif matched:
+        if matched:
             mark = '  OK '
         else:
             mark = '  X  '
@@ -417,8 +423,6 @@ def main():
     parser = argparse.ArgumentParser(
         description='Compare all PML event fields against procmon XML export')
     parser.add_argument('pml_file', help='Path to the PML file')
-    parser.add_argument('--start-event', type=int, default=0, metavar='N',
-                        help='Skip events with event_index < N (default: 0)')
     parser.add_argument('--tz', type=int, default=None, metavar='HOURS',
                         help='UTC offset in hours for timestamp display (e.g. 8 for UTC+8). '
                              'Defaults to system local timezone.')
@@ -462,11 +466,13 @@ def main():
     print("Step 1: Comparing all events field-by-field ...")
     print("-" * 70)
 
+    start_event = 0
+
     t0 = time.perf_counter()
     n_mismatches = compare_all_events(
         pml_file=pml_file,
         procmon_xml=procmon_xml,
-        start_event=args.start_event,
+        start_event=start_event,
         tz=_tz,
     )
     elapsed = time.perf_counter() - t0
