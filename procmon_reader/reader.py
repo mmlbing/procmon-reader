@@ -116,8 +116,32 @@ class ProcmonReader:
     # processes
     # ===================================================================
     def processes(self) -> List[dict]:
-        """Return a list of all processes recorded in the PML file."""
+        """Return a list of all processes recorded in the PML file.
+
+        Each process dict contains metadata fields (pid, process_name,
+        image_path, etc.) but excludes modules for efficiency.
+        Use :meth:`process_modules` to retrieve modules for a specific process.
+        """
         return list(self._cpp.processes())
+
+    def process_modules(self, process_index: int) -> List[dict]:
+        """Return the list of loaded modules for a given process.
+
+        Args:
+            process_index: The process index (as returned in each process
+                dict's ``process_index`` field).
+
+        Returns:
+            List of module dicts, each with keys: base_address, size, path,
+            version, company, description, timestamp.
+
+        Raises:
+            IndexError: If *process_index* is not found in the process table.
+        """
+        try:
+            return list(self._cpp.process_modules(process_index))
+        except RuntimeError as e:
+            raise IndexError(str(e)) from None
 
     # ===================================================================
     # event_count

@@ -148,15 +148,15 @@ public:
         for (const auto *pi : sorted) {
             py::dict d;
             d["process_index"] = pi->process_index;
-            d["process_id"] = pi->process_id;
-            d["parent_process_id"] = pi->parent_process_id;
+            d["pid"] = pi->process_id;
+            d["parent_pid"] = pi->parent_process_id;
             d["parent_process_index"] = pi->parent_process_index;
             d["authentication_id"] = pi->authentication_id;
-            d["session_number"] = pi->session_number;
+            d["session"] = pi->session_number;
             d["start_time"] = pi->start_time;
             d["end_time"] = pi->end_time;
-            d["is_virtualized"] = pi->is_virtualized;
-            d["is_64bit"] = pi->is_64bit;
+            d["virtualized"] = pi->is_virtualized;
+            d["is_64_bit"] = pi->is_64bit;
             d["integrity"] = pi->integrity;
             d["user"] = pi->user;
             d["process_name"] = pi->process_name;
@@ -166,23 +166,33 @@ public:
             d["version"] = pi->version;
             d["description"] = pi->description;
 
-            py::list mods;
-            for (auto &mod : pi->modules) {
-                py::dict md;
-                md["base_address"] = mod.base_address;
-                md["size"] = mod.size;
-                md["path"] = mod.path;
-                md["version"] = mod.version;
-                md["company"] = mod.company;
-                md["description"] = mod.description;
-                md["timestamp"] = mod.timestamp;
-                mods.append(md);
-            }
-            d["modules"] = mods;
-
             result.append(d);
         }
         return result;
+    }
+
+    /* --- process_modules --- */
+    py::list process_modules(uint32_t process_index) const {
+        const auto &table = reader_->process_table();
+        auto it = table.find(process_index);
+        if (it == table.end())
+            throw std::out_of_range(
+                "process_index " + std::to_string(process_index) + " not found");
+        const PmlProcessInfo *pi = &it->second;
+
+        py::list mods;
+        for (auto &mod : pi->modules) {
+            py::dict md;
+            md["base_address"] = mod.base_address;
+            md["size"] = mod.size;
+            md["path"] = mod.path;
+            md["version"] = mod.version;
+            md["company"] = mod.company;
+            md["description"] = mod.description;
+            md["timestamp"] = mod.timestamp;
+            mods.append(md);
+        }
+        return mods;
     }
 
     /* --- Properties --- */
@@ -293,6 +303,8 @@ PYBIND11_MODULE(_pml_core, m) {
         .def("close", &PyProcmonReader::close)
         .def("system_details", &PyProcmonReader::system_details)
         .def("processes", &PyProcmonReader::processes)
+        .def("process_modules", &PyProcmonReader::process_modules,
+             py::arg("process_index"))
         .def_property_readonly("event_count", &PyProcmonReader::event_count)
         .def("filter_events", &PyProcmonReader::filter_events,
              py::arg("filter_tree"), py::arg("tz_offset_seconds"),
