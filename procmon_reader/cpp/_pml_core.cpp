@@ -131,7 +131,7 @@ public:
     }
 
     /* --- processes --- */
-    py::list processes() const {
+    py::list processes(int tz_offset_seconds) const {
         py::list result;
         const auto &table = reader_->process_table();
 
@@ -153,8 +153,8 @@ public:
             d["parent_process_index"] = pi->parent_process_index;
             d["authentication_id"] = pi->authentication_id;
             d["session"] = pi->session_number;
-            d["start_time"] = pi->start_time;
-            d["end_time"] = pi->end_time;
+            d["start_time"] = pml_fmt::format_timestamp(pi->start_time, tz_offset_seconds);
+            d["end_time"] = pml_fmt::format_timestamp(pi->end_time, tz_offset_seconds);
             d["virtualized"] = pi->is_virtualized;
             d["is_64_bit"] = pi->is_64bit;
             d["integrity"] = pi->integrity;
@@ -302,7 +302,8 @@ PYBIND11_MODULE(_pml_core, m) {
              py::arg("file_path"))
         .def("close", &PyProcmonReader::close)
         .def("system_details", &PyProcmonReader::system_details)
-        .def("processes", &PyProcmonReader::processes)
+        .def("processes", &PyProcmonReader::processes,
+             py::arg("tz_offset_seconds"))
         .def("process_modules", &PyProcmonReader::process_modules,
              py::arg("process_index"))
         .def_property_readonly("event_count", &PyProcmonReader::event_count)
