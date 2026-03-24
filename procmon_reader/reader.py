@@ -122,7 +122,7 @@ class ProcmonReader:
         image_path, etc.) but excludes modules for efficiency.
         Use :meth:`process_modules` to retrieve modules for a specific process.
         """
-        return list(self._cpp.processes())
+        return list(self._cpp.processes(self._tz_offset))
 
     def process_modules(self, process_index: int) -> List[dict]:
         """Return the list of loaded modules for a given process.
