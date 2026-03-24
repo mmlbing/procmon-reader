@@ -40,6 +40,13 @@ reader = ProcmonReader("capture.pml")
 print(reader.system_details())
 print(reader.event_count)
 
+# Process info
+processes = reader.processes()
+print(processes[0])  # first process
+
+process_modules = reader.process_modules(processes[0]['process_index'])
+print(process_modules)
+
 # Filter events
 reader.apply_filters(
     filters=[
