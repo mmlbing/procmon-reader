@@ -10,6 +10,25 @@ Or build in-place for development:
 import sys
 import pybind11
 from setuptools import setup, Extension
+from setuptools.command.build_py import build_py
+
+
+class BuildPyWithoutCpp(build_py):
+    """Exclude C++ source/header files from the wheel (they belong in sdist only)."""
+    def find_package_modules(self, package, package_dir):
+        modules = super().find_package_modules(package, package_dir)
+        return [(pkg, mod, path) for pkg, mod, path in modules
+                if not path.endswith(('.cpp', '.h'))]
+
+    def build_package_data(self):
+        """Filter out .cpp/.h files from package data before copying."""
+        super().build_package_data()
+        # Remove any .cpp/.h files that were copied to build_lib
+        import os
+        for root, dirs, files in os.walk(self.build_lib):
+            for f in files:
+                if f.endswith(('.cpp', '.h')):
+                    os.remove(os.path.join(root, f))
 
 extra_compile_args = []
 extra_link_args = []
@@ -54,4 +73,5 @@ _pml_core = Extension(
 
 setup(
     ext_modules=[_pml_core],
+    cmdclass={'build_py': BuildPyWithoutCpp},
 )
