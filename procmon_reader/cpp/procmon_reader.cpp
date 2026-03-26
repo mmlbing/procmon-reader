@@ -723,8 +723,6 @@ std::vector<EventOutput> ProcmonReader::read_events_batch(
         pml_pre::FieldCategory category;
     };
     std::vector<FieldSpec> fields;
-    bool need_path = false, need_detail = false;
-    bool need_category = false, need_stacktrace = false;
 
     for (auto &sf : select_fields) {
         std::string canonical = pml_pre::normalize_field_name(sf);
@@ -738,11 +736,6 @@ std::vector<EventOutput> ProcmonReader::read_events_batch(
         fs.field_id = meta->field_id;
         fs.category = pml_pre::get_field_category(meta->field_id);
         fields.push_back(fs);
-
-        if (meta->field_id == pml_pre::FID_PATH) need_path = true;
-        if (meta->field_id == pml_pre::FID_DETAIL) need_detail = true;
-        if (meta->field_id == pml_pre::FID_CATEGORY) need_category = true;
-        if (meta->field_id == pml_pre::FID_STACKTRACE) need_stacktrace = true;
     }
 
     /* Prepare context */

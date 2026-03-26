@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <optional>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -440,10 +441,14 @@ inline uint64_t convert_timestamp_to_filetime(const std::string &value, int tz_o
     int year, month, day, hour, minute, second;
     double frac = 0.0;
 
-    /* Try parsing with fractional seconds */
-    int n = std::sscanf(value.c_str(), "%d-%d-%dT%d:%d:%d",
-                        &year, &month, &day, &hour, &minute, &second);
-    if (n < 6) return 0;
+    /* Parse YYYY-MM-DDTHH:MM:SS using C++ streams */
+    {
+        std::istringstream iss(value);
+        char sep;
+        iss >> year >> sep >> month >> sep >> day >> sep
+            >> hour >> sep >> minute >> sep >> second;
+        if (iss.fail()) return 0;
+    }
 
     /* Extract fractional part after seconds */
     auto dot_pos = value.find('.', value.find('T'));
