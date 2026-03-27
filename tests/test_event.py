@@ -187,36 +187,33 @@ def run_test_case(tc: dict, config_dir: Path, verbose: bool) -> Tuple[str, str, 
     return (PASS, summary, elapsed)
 
 
-def main(config_file: str = None, verbose: bool = False, filter_name: str = None) -> int:
-    if config_file is None:
-        config_file = str(Path(__file__).parent / "test_event_cases.json")
+def _discover_config_files() -> List[Path]:
+    """Discover all test_event_*.json files next to this script."""
+    test_dir = Path(__file__).parent
+    return sorted(test_dir.glob("test_event_*.json"))
 
-    config_path = Path(config_file).resolve()
-    if not config_path.exists():
-        print(f"ERROR: Config file not found: {config_path}", file=sys.stderr)
-        return 1
 
+def _run_config_file(config_path: Path, verbose: bool, filter_name: str = None) -> Tuple[int, int, int]:
+    """Run all test cases in one config file. Returns (passed, failed, errored)."""
     with config_path.open(encoding="utf-8") as fh:
         config: dict = json.load(fh)
 
     test_cases: List[dict] = config.get("test_cases", [])
     if not test_cases:
-        print("No test cases found in config.", file=sys.stderr)
-        return 1
+        print(f"  (no test_cases in {config_path.name})")
+        return (0, 0, 0)
 
     if filter_name:
         test_cases = [tc for tc in test_cases if tc.get("name") == filter_name]
         if not test_cases:
-            print(f"No test case named '{filter_name}'.", file=sys.stderr)
-            return 1
+            return (0, 0, 0)
 
     config_dir = config_path.parent
     max_name_len = max(len(tc.get("name", "")) for tc in test_cases)
 
     passed = failed = errored = 0
-    results: List[Tuple[str, str, str, float]] = []
 
-    print(f"\n  Running {len(test_cases)} event test case(s) from: {config_path.name}\n")
+    print(f"\n  Running {len(test_cases)} test case(s) from: {config_path.name}\n")
     print(f"  {'Name':<{max_name_len}}  {'Status':<7}  {'Time':>8}  Details")
     print("  " + "-" * (max_name_len + 40))
 
@@ -230,7 +227,6 @@ def main(config_file: str = None, verbose: bool = False, filter_name: str = None
             for line in msg.splitlines()[1:]:
                 print(f"  {'':>{max_name_len}}           {line}")
 
-        results.append((name, status, msg, elapsed))
         if status == PASS:
             passed += 1
         elif status == FAIL:
@@ -238,16 +234,48 @@ def main(config_file: str = None, verbose: bool = False, filter_name: str = None
         else:
             errored += 1
 
-    total = len(test_cases)
-    print()
-    print(f"  Event tests: {total} total  |  {passed} passed  |  {failed} failed  |  {errored} error(s)")
+    print(f"\n  Subtotal: {passed + failed + errored} total  |  {passed} passed  |  {failed} failed  |  {errored} error(s)")
+    return (passed, failed, errored)
 
-    return 0 if (failed == 0 and errored == 0) else 1
+
+def main(config_file: str = None, verbose: bool = False, filter_name: str = None) -> int:
+    if config_file is not None:
+        config_path = Path(config_file).resolve()
+        if not config_path.exists():
+            print(f"ERROR: Config file not found: {config_path}", file=sys.stderr)
+            return 1
+        config_files = [config_path]
+    else:
+        config_files = _discover_config_files()
+        if not config_files:
+            print("ERROR: No test_*.json files found.", file=sys.stderr)
+            return 1
+
+    total_passed = total_failed = total_errored = 0
+
+    for cf in config_files:
+        p, f, e = _run_config_file(cf, verbose, filter_name)
+        total_passed += p
+        total_failed += f
+        total_errored += e
+
+    total = total_passed + total_failed + total_errored
+    if total == 0 and filter_name:
+        print(f"No test case named '{filter_name}' in any config file.", file=sys.stderr)
+        return 1
+
+    print()
+    print("=" * 60)
+    print(f"  TOTAL: {total} tests  |  {total_passed} passed  |  {total_failed} failed  |  {total_errored} error(s)")
+    print("=" * 60)
+
+    return 0 if (total_failed == 0 and total_errored == 0) else 1
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run ProcmonReader event tests.")
-    parser.add_argument("config", nargs="?", default=None)
+    parser.add_argument("config", nargs="?", default=None,
+                        help="Path to a specific config JSON. If omitted, runs all test_*.json files.")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("-f", "--filter", dest="filter_name")
     args = parser.parse_args()
