@@ -199,7 +199,7 @@ inline std::string format_filetime_local(uint64_t ft, int tz_offset_seconds,
     const char *ampm = (hour < 12) ? "AM" : "PM";
     int hour12 = hour % 12;
     if (hour12 == 0) hour12 = 12;
-    char buf[32];
+    char buf[64];  // 64 bytes: year as int can be up to 11 chars, prevents -Wformat-truncation
     std::snprintf(buf, sizeof(buf), "%d/%d/%d %d:%02d:%02d %s",
                   m, d, year, hour12, minute, second, ampm);
     return buf;
