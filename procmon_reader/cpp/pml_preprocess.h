@@ -351,27 +351,66 @@ inline std::optional<std::string> is_exact_regex(const std::string &pattern) {
     return inner;
 }
 
-
-/* Check if regex pattern is a plain substring (no regex metacharacters).
- * Returns the literal substring if plain, nullopt otherwise.
- * This allows replacing std::regex_search with string::find for simple
- * "contains" style matching. */
-inline std::optional<std::string> is_plain_substring(const std::string &pattern) {
-    if (pattern.empty()) return std::nullopt;
-    for (char c : pattern) {
-        switch (c) {
-            case '.': case '*': case '+': case '?':
-            case '[': case ']': case '(': case ')':
-            case '{': case '}': case '|': case '\\':
-            case '^': case '$':
-                return std::nullopt;
-            default:
-                break;
+/* Check if regex is ^A$|^B$|^C$ (multi-exact alternation).
+ * Returns the list of literal strings, nullopt otherwise. */
+inline std::optional<std::vector<std::string>> is_multi_exact_regex(const std::string &pattern) {
+    if (pattern.size() < 3) return std::nullopt;
+    /* Split on | first, then check each part is ^literal$ */
+    std::vector<std::string> parts;
+    std::string cur;
+    for (size_t i = 0; i < pattern.size(); i++) {
+        if (pattern[i] == '|') {
+            if (cur.empty()) return std::nullopt;
+            parts.push_back(std::move(cur));
+            cur.clear();
+        } else {
+            cur += pattern[i];
         }
     }
-    return pattern;
+    if (cur.empty()) return std::nullopt;
+    parts.push_back(std::move(cur));
+    if (parts.size() < 2) return std::nullopt;  /* single → use is_exact_regex */
+    /* Validate each part is ^literal$ */
+    std::vector<std::string> result;
+    result.reserve(parts.size());
+    for (auto &p : parts) {
+        auto ex = is_exact_regex(p);
+        if (!ex) return std::nullopt;
+        result.push_back(std::move(*ex));
+    }
+    return result;
 }
 
+
+/* Try to decompose a regex pattern into plain substrings.
+ * Handles both single literals ("SUCCESS") and alternations ("NOT|DENIED|LOCKED").
+ * Returns nullopt if any part contains regex metacharacters. */
+inline std::optional<std::vector<std::string>> is_multi_substring(const std::string &pattern) {
+    if (pattern.empty()) return std::nullopt;
+    std::vector<std::string> parts;
+    std::string cur;
+    for (char c : pattern) {
+        if (c == '|') {
+            if (cur.empty()) return std::nullopt;   /* empty alternative */
+            parts.push_back(std::move(cur));
+            cur.clear();
+        } else {
+            switch (c) {
+                case '.': case '*': case '+': case '?':
+                case '[': case ']': case '(': case ')':
+                case '{': case '}': case '\\':
+                case '^': case '$':
+                    return std::nullopt;
+                default:
+                    cur += c;
+                    break;
+            }
+        }
+    }
+    if (cur.empty()) return std::nullopt;           /* trailing '|' */
+    parts.push_back(std::move(cur));
+    return parts;
+}
 
 /* Case-insensitive substring search ("contains").
  * Returns true if needle is found within haystack, ignoring case. */
@@ -385,6 +424,15 @@ inline bool ci_contains(const std::string &haystack, const std::string &needle) 
                                      std::tolower(static_cast<unsigned char>(b));
                           });
     return it != haystack.end();
+}
+
+/* Case-insensitive check: does haystack contain ANY of the needles? */
+inline bool ci_contains_any(const std::string &haystack,
+                            const std::vector<std::string> &needles) {
+    for (const auto &n : needles) {
+        if (ci_contains(haystack, n)) return true;
+    }
+    return false;
 }
 
 

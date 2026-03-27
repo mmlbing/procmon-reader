@@ -119,7 +119,23 @@ private:
     struct PreprocessedLeaf {
         int field_id;
         int op_id;
-        int64_t int_value;
+        int64_t int_value;             /* scalar value for OP_NE / OP_LE / OP_GE comparisons */
+
+        /* Exact-match integer codes (single ^A$ or multi ^A$|^B$|^C$).
+         * Each name is reverse-looked-up to its integer code and stored here.
+         * At eval time the header field is compared against these directly,
+         * bypassing string resolution and regex_search. */
+        std::vector<int64_t> int_values;
+
+        /* Parallel to int_values: the event_class each code belongs to.
+         * Prevents cross-class false matches (e.g. RegQueryValue op=5 vs
+         * Load Image op=5).  Only consulted when check_event_class is true. */
+        std::vector<uint32_t> ec_values;
+
+        /* Whether ec_values should be tested during evaluation.
+         * true for operation exact matches, false for result and others. */
+        bool check_event_class;
+
         std::string str_value;
         std::regex regex;
         bool has_regex;

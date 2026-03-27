@@ -60,14 +60,15 @@ constexpr int MAX_THREADS = 64;
 constexpr int MIN_EVENTS_PER_THREAD = 200000;
 
 /* Rule types for tree mode */
-constexpr int RT_HEADER_CMP     = 0;
-constexpr int RT_PROCESS_MASK   = 1;
-constexpr int RT_OP_REGEX       = 2;
-constexpr int RT_RESULT_REGEX   = 3;
-constexpr int RT_PATH_REGEX     = 4;
-constexpr int RT_ALWAYS_TRUE    = 5;
-constexpr int RT_CATEGORY_REGEX = 6;
-constexpr int RT_DETAIL_REGEX   = 7;
+constexpr int RT_HEADER_CMP     = 0;    /* Except operation and result */
+constexpr int RT_OP_REGEX       = 1;
+constexpr int RT_RESULT_REGEX   = 2;
+constexpr int RT_HEADER_EQ_ANY  = 3;    /* Optimize for operation and result regex match */
+constexpr int RT_PROCESS_MASK   = 4;
+constexpr int RT_PATH_REGEX     = 5;
+constexpr int RT_ALWAYS_TRUE    = 6;
+constexpr int RT_CATEGORY_REGEX = 7;
+constexpr int RT_DETAIL_REGEX   = 8;
 
 /* Tree node types */
 constexpr int NT_AND  = 0;
@@ -119,15 +120,19 @@ struct TreeRule {
     int field_offset;
     int field_size;
     int op_id;
-    uint64_t int_value;
+    uint64_t int_value;             /* scalar value for OP_NE / OP_LE / OP_GE comparisons */
+    std::vector<uint64_t> int_values; /* exact-match codes: single ^A$ or multi ^A$|^B$|^C$ */
+    std::vector<uint32_t> ec_values;  /* parallel to int_values: required event_class per code */
+    bool check_event_class;           /* whether ec_values should be tested during eval */
     std::regex regex;
     bool has_regex;
-    bool is_substr;              /* plain substring → use ci_contains() */
-    std::string plain_substr;    /* the literal substring (original case) */
+    bool is_multi_substr;        /* plain substring(s) → ci_contains_any() */
+    std::vector<std::string> multi_substrs;  /* e.g. "NOT|DENIED|LOCKED" or single "SUCCESS" */
     std::vector<uint8_t> proc_mask_data;
 
     TreeRule() : type(RT_ALWAYS_TRUE), field_offset(0), field_size(0),
-                 op_id(0), int_value(0), has_regex(false), is_substr(false) {}
+                 op_id(0), int_value(0), check_event_class(false),
+                 has_regex(false), is_multi_substr(false) {}
 };
 
 /* Filter tree node */
