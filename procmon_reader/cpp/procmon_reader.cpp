@@ -389,6 +389,7 @@ void ProcmonReader::preprocess_leaf(
     leaf.op_id = op_id;
     leaf.has_regex = false;
     leaf.int_value = 0;
+    leaf.check_event_class = false;
 
     /* Get the string value */
     std::string val_str = node.value_str;
@@ -403,13 +404,12 @@ void ProcmonReader::preprocess_leaf(
         leaf.int_value = v;
 
     } else if (canonical == "operation") {
-        /* Check for exact regex match */
+        /* Check for exact regex match: ^Name$ */
         auto exact = is_exact_regex(val_str);
         if (exact) {
             std::string key = to_upper(*exact);
             auto it = op_name_to_value_.find(key);
             if (it == op_name_to_value_.end()) {
-                /* Try underscore → space */
                 std::string alt = key;
                 std::replace(alt.begin(), alt.end(), ' ', '_');
                 it = op_name_to_value_.find(alt);
@@ -417,7 +417,40 @@ void ProcmonReader::preprocess_leaf(
             if (it != op_name_to_value_.end()) {
                 leaf.field_id = FID_OPERATION_EXACT;
                 leaf.op_id = OP_ID_EQ;
-                leaf.int_value = it->second.second;  /* operation value */
+                leaf.int_values = { static_cast<int64_t>(it->second.second) };
+                leaf.ec_values  = { it->second.first };
+                leaf.check_event_class = true;
+                return;
+            }
+        }
+        /* Check for multi-exact: ^A$|^B$|^C$ */
+        auto mexact = is_multi_exact_regex(val_str);
+        if (mexact) {
+            std::vector<int64_t> codes;
+            std::vector<uint32_t> ecs;
+            bool all_found = true;
+            for (auto &name : *mexact) {
+                std::string key = to_upper(name);
+                auto it = op_name_to_value_.find(key);
+                if (it == op_name_to_value_.end()) {
+                    std::string alt = key;
+                    std::replace(alt.begin(), alt.end(), ' ', '_');
+                    it = op_name_to_value_.find(alt);
+                }
+                if (it != op_name_to_value_.end()) {
+                    codes.push_back(it->second.second);
+                    ecs.push_back(it->second.first);
+                } else {
+                    all_found = false;
+                    break;
+                }
+            }
+            if (all_found && !codes.empty()) {
+                leaf.field_id = FID_OPERATION_EXACT;
+                leaf.op_id = OP_ID_EQ;
+                leaf.int_values = std::move(codes);
+                leaf.ec_values = std::move(ecs);
+                leaf.check_event_class = true;
                 return;
             }
         }
@@ -435,7 +468,29 @@ void ProcmonReader::preprocess_leaf(
             if (it != result_name_to_code_.end()) {
                 leaf.field_id = FID_RESULT_EXACT;
                 leaf.op_id = OP_ID_EQ;
-                leaf.int_value = it->second;
+                leaf.int_values = { static_cast<int64_t>(it->second) };
+                return;
+            }
+        }
+        /* Check for multi-exact: ^A$|^B$|^C$ */
+        auto mexact = is_multi_exact_regex(val_str);
+        if (mexact) {
+            std::vector<int64_t> codes;
+            bool all_found = true;
+            for (auto &name : *mexact) {
+                std::string key = to_upper(name);
+                auto it = result_name_to_code_.find(key);
+                if (it != result_name_to_code_.end()) {
+                    codes.push_back(it->second);
+                } else {
+                    all_found = false;
+                    break;
+                }
+            }
+            if (all_found && !codes.empty()) {
+                leaf.field_id = FID_RESULT_EXACT;
+                leaf.op_id = OP_ID_EQ;
+                leaf.int_values = std::move(codes);
                 return;
             }
         }
@@ -543,31 +598,39 @@ int ProcmonReader::convert_tree_recursive(
             } else {
                 auto it = header_field_spec().find(leaf.field_id);
                 if (it != header_field_spec().end()) {
-                    rule.type = RT_HEADER_CMP;
-                    rule.field_offset = it->second.first;
-                    rule.field_size = it->second.second;
-                    rule.op_id = leaf.op_id;
-                    rule.int_value = static_cast<uint64_t>(leaf.int_value);
+                    if (!leaf.int_values.empty()) {
+                        rule.type = RT_HEADER_EQ_ANY;
+                        rule.field_offset = it->second.first;
+                        rule.field_size = it->second.second;
+                        for (auto v : leaf.int_values)
+                            rule.int_values.push_back(static_cast<uint64_t>(v));
+                        rule.ec_values = leaf.ec_values;
+                        rule.check_event_class = leaf.check_event_class;
+                    } else {
+                        rule.type = RT_HEADER_CMP;
+                        rule.field_offset = it->second.first;
+                        rule.field_size = it->second.second;
+                        rule.op_id = leaf.op_id;
+                        rule.int_value = static_cast<uint64_t>(leaf.int_value);
+                    }
                 } else {
                     rule.type = RT_ALWAYS_TRUE;
                 }
             }
         } else if (leaf.field_id == pml_pre::FID_OPERATION_REGEX && leaf.has_regex) {
             rule.type = RT_OP_REGEX;
-            auto sub = pml_pre::is_plain_substring(leaf.str_value);
-            if (sub) {
-                rule.is_substr = true;
-                rule.plain_substr = *sub;
+            if (auto ms = pml_pre::is_multi_substring(leaf.str_value)) {
+                rule.is_multi_substr = true;
+                rule.multi_substrs = std::move(*ms);
             } else {
                 rule.regex = leaf.regex;
                 rule.has_regex = true;
             }
         } else if (leaf.field_id == pml_pre::FID_RESULT_REGEX && leaf.has_regex) {
             rule.type = RT_RESULT_REGEX;
-            auto sub = pml_pre::is_plain_substring(leaf.str_value);
-            if (sub) {
-                rule.is_substr = true;
-                rule.plain_substr = *sub;
+            if (auto ms = pml_pre::is_multi_substring(leaf.str_value)) {
+                rule.is_multi_substr = true;
+                rule.multi_substrs = std::move(*ms);
             } else {
                 rule.regex = leaf.regex;
                 rule.has_regex = true;
@@ -581,30 +644,27 @@ int ProcmonReader::convert_tree_recursive(
             rule.proc_mask_data = std::move(mask);
         } else if (leaf.field_id == pml_pre::FID_PATH && leaf.has_regex) {
             rule.type = RT_PATH_REGEX;
-            auto sub = pml_pre::is_plain_substring(leaf.str_value);
-            if (sub) {
-                rule.is_substr = true;
-                rule.plain_substr = *sub;
+            if (auto ms = pml_pre::is_multi_substring(leaf.str_value)) {
+                rule.is_multi_substr = true;
+                rule.multi_substrs = std::move(*ms);
             } else {
                 rule.regex = leaf.regex;
                 rule.has_regex = true;
             }
         } else if (leaf.field_id == pml_pre::FID_CATEGORY && leaf.has_regex) {
             rule.type = RT_CATEGORY_REGEX;
-            auto sub = pml_pre::is_plain_substring(leaf.str_value);
-            if (sub) {
-                rule.is_substr = true;
-                rule.plain_substr = *sub;
+            if (auto ms = pml_pre::is_multi_substring(leaf.str_value)) {
+                rule.is_multi_substr = true;
+                rule.multi_substrs = std::move(*ms);
             } else {
                 rule.regex = leaf.regex;
                 rule.has_regex = true;
             }
         } else if (leaf.field_id == pml_pre::FID_DETAIL && leaf.has_regex) {
             rule.type = RT_DETAIL_REGEX;
-            auto sub = pml_pre::is_plain_substring(leaf.str_value);
-            if (sub) {
-                rule.is_substr = true;
-                rule.plain_substr = *sub;
+            if (auto ms = pml_pre::is_multi_substring(leaf.str_value)) {
+                rule.is_multi_substr = true;
+                rule.multi_substrs = std::move(*ms);
             } else {
                 rule.regex = leaf.regex;
                 rule.has_regex = true;

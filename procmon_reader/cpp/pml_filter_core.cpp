@@ -526,6 +526,17 @@ static bool eval_tree_rule(
                 return false;
             return rule.proc_mask_data[ed.proc_idx] != 0;
         }
+        case RT_HEADER_EQ_ANY: {
+            uint64_t v = read_header_field(ed.evt, rule.field_offset, rule.field_size);
+            for (size_t i = 0; i < rule.int_values.size(); i++) {
+                if (v == rule.int_values[i]) {
+                    if (rule.check_event_class && ed.event_class != rule.ec_values[i])
+                        continue;
+                    return true;
+                }
+            }
+            return false;
+        }
         case RT_OP_REGEX: {
             if (!ed.op_name_resolved) {
                 ed.op_name = resolve_op_name(
@@ -534,8 +545,8 @@ static bool eval_tree_rule(
                     ed.stacktrace_depth, ed.details_size);
                 ed.op_name_resolved = true;
             }
-            if (rule.is_substr)
-                return pml_pre::ci_contains(ed.op_name, rule.plain_substr);
+            if (rule.is_multi_substr)
+                return pml_pre::ci_contains_any(ed.op_name, rule.multi_substrs);
             return std::regex_search(ed.op_name, rule.regex);
         }
         case RT_RESULT_REGEX: {
@@ -543,8 +554,8 @@ static bool eval_tree_rule(
                 ed.result_name = resolve_result_name(ctx, ed.result_code);
                 ed.result_name_resolved = true;
             }
-            if (rule.is_substr)
-                return pml_pre::ci_contains(ed.result_name, rule.plain_substr);
+            if (rule.is_multi_substr)
+                return pml_pre::ci_contains_any(ed.result_name, rule.multi_substrs);
             return std::regex_search(ed.result_name, rule.regex);
         }
         case RT_PATH_REGEX: {
@@ -555,8 +566,8 @@ static bool eval_tree_rule(
                     ed.stacktrace_depth, ed.details_size, ctx.pvoid_size);
                 ed.path_resolved = true;
             }
-            if (rule.is_substr)
-                return pml_pre::ci_contains(ed.path, rule.plain_substr);
+            if (rule.is_multi_substr)
+                return pml_pre::ci_contains_any(ed.path, rule.multi_substrs);
             return std::regex_search(ed.path, rule.regex);
         }
         case RT_CATEGORY_REGEX: {
@@ -564,8 +575,8 @@ static bool eval_tree_rule(
                 ed.category = resolve_category(ctx, ed.event_class, ed.operation);
                 ed.category_resolved = true;
             }
-            if (rule.is_substr)
-                return pml_pre::ci_contains(ed.category, rule.plain_substr);
+            if (rule.is_multi_substr)
+                return pml_pre::ci_contains_any(ed.category, rule.multi_substrs);
             return std::regex_search(ed.category, rule.regex);
         }
         case RT_DETAIL_REGEX: {
@@ -576,8 +587,8 @@ static bool eval_tree_rule(
                     ed.stacktrace_depth, ed.details_size, ctx.pvoid_size, ctx.tz_offset_seconds);
                 ed.detail_resolved = true;
             }
-            if (rule.is_substr)
-                return pml_pre::ci_contains(ed.detail_json, rule.plain_substr);
+            if (rule.is_multi_substr)
+                return pml_pre::ci_contains_any(ed.detail_json, rule.multi_substrs);
             return std::regex_search(ed.detail_json, rule.regex);
         }
         case RT_ALWAYS_TRUE:
