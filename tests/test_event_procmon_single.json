@@ -1,0 +1,1096 @@
+{
+  "_comment": "Auto-generated test cases. Source: Logfile.zip",
+  "test_cases": [
+    {
+      "name": "single_event_index_eq",
+      "description": "event_index == 100",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "==", "100", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Profiling",
+          "operation": "Process Profiling",
+          "process_name": "smartscreen.exe",
+          "pid": 7020,
+          "tid": 0,
+          "result": "SUCCESS",
+          "path": "",
+          "detail": {
+            "User Time": "0.0000000 seconds",
+            "Kernel Time": "0.0937500 seconds",
+            "Private Bytes": "8630272",
+            "Working Set": "24633344"
+          }
+        }
+      }
+    },
+    {
+      "name": "single_event_index_le",
+      "description": "event_index <= 2 — first 3 events",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "<=", "2", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 2,
+            "fields": {"event_class": "Profiling", "operation": "Process Profiling", "process_name": "Idle", "pid": 0}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_event_index_ge",
+      "description": "event_index >= 108238 — last event",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", ">=", "108238", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Process",
+          "operation": "Thread Create",
+          "process_name": "svchost.exe",
+          "pid": 6328,
+          "tid": 36,
+          "result": "SUCCESS",
+          "path": "",
+          "detail": {"Thread ID": 3896}
+        }
+      }
+    },
+    {
+      "name": "single_event_index_ne",
+      "description": "event_index != 0 AND <= 2 — events 1,2",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "!=", "0", "include"], ["event_index", "<=", "2", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 2,
+            "fields": {"event_class": "Profiling", "operation": "Process Profiling", "process_name": "Idle", "pid": 0}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_event_class_eq",
+      "description": "event_class == File System (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "File System", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path", "category"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744,
+              "tid": 796,
+              "result": "SUCCESS",
+              "path": "C:\\works\\ProcessMonitor\\Procmon64.exe",
+              "category": "Read Metadata"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744,
+              "tid": 852,
+              "result": "SUCCESS",
+              "path": "C:\\works\\ProcessMonitor\\Procmon64.exe",
+              "category": "Read Metadata"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_event_class_ne",
+      "description": "event_class != Profiling (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "!=", "Profiling", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_event_class_registry",
+      "description": "event_class == Registry (idx 147-152)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Registry", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "152", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "category", "detail"],
+      "expected": {
+        "total_count": 6,
+        "all_events": {"event_class": "Registry"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "RegQueryKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM",
+              "category": "Read",
+              "detail": {"Query": "HandleTags", "HandleTags": "0x0"}
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "RegQueryKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM",
+              "category": "Read",
+              "detail": {"Query": "Name"}
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "operation": "RegCreateKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\Software\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState",
+              "category": "Read",
+              "detail": {"Desired Access": "All Access", "Disposition": "REG_OPENED_EXISTING_KEY"}
+            }
+          },
+          {
+            "index": 3,
+            "fields": {
+              "operation": "RegSetInfoKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState",
+              "category": "Write Metadata",
+              "detail": {"KeySetInformationClass": "KeySetHandleTagsInformation", "Length": 0}
+            }
+          },
+          {
+            "index": 4,
+            "fields": {
+              "operation": "RegSetValue",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs",
+              "category": "Write",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 4294967295}
+            }
+          },
+          {
+            "index": 5,
+            "fields": {
+              "operation": "RegCloseKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState",
+              "category": "",
+              "detail": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_event_class_network",
+      "description": "event_class == Network (idx 215-216)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Network", "include"],
+        ["event_index", ">=", "215", "include"],
+        ["event_index", "<=", "216", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "Network"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "TCP Receive",
+              "process_name": "svchost.exe",
+              "pid": 5456,
+              "tid": 0,
+              "result": "SUCCESS",
+              "path": "DESKTOP-IFKRIMS.localdomain:49810 -> 198.18.0.164:https",
+              "detail": {"Length": 0, "seqnum": 0, "connid": 0}
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "TCP Disconnect",
+              "process_name": "svchost.exe",
+              "pid": 5456,
+              "tid": 0,
+              "result": "SUCCESS",
+              "path": "DESKTOP-IFKRIMS.localdomain:49810 -> 198.18.0.164:https",
+              "detail": {"Length": 0, "seqnum": 0, "connid": 0}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_event_class_process",
+      "description": "event_class == Process (idx 225)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Process", "include"],
+        ["event_index", ">=", "225", "include"],
+        ["event_index", "<=", "225", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Process",
+          "operation": "Load Image",
+          "process_name": "svchost.exe",
+          "pid": 5456,
+          "tid": 7688,
+          "result": "SUCCESS",
+          "path": "C:\\Windows\\System32\\OnDemandConnRouteHelper.dll",
+          "detail": {"Image Base": "0x7ff9edc40000", "Image Size": "0x17000"}
+        }
+      }
+    },
+    {
+      "name": "single_event_class_profiling",
+      "description": "event_class == Profiling (idx 2-4)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Profiling", "include"],
+        ["event_index", ">=", "2", "include"],
+        ["event_index", "<=", "4", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"event_class": "Profiling", "operation": "Process Profiling", "tid": 0, "result": "SUCCESS"},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "Idle", "pid": 0}},
+          {"index": 1, "fields": {"process_name": "System", "pid": 4}},
+          {"index": 2, "fields": {"process_name": "Registry", "pid": 108}}
+        ]
+      }
+    },
+    {
+      "name": "single_duration_ge",
+      "description": "duration >= 1 second",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["duration", ">=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "duration", "result", "path"],
+      "expected": {
+        "total_count": 4,
+        "first_event": {
+          "event_class": "File System",
+          "operation": "FileSystemControl",
+          "process_name": "SearchIndexer.exe",
+          "pid": 4892,
+          "result": "SUCCESS",
+          "path": "C:"
+        }
+      }
+    },
+    {
+      "name": "single_timestamp_range",
+      "description": "timestamp in narrow range near end of capture",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["timestamp", ">=", "2026-03-21T14:41:31.2", "include"],
+        ["timestamp", "<=", "2026-03-21T14:41:31.3", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "timestamp", "result"],
+      "expected": {
+        "min_count": 1,
+        "first_event": {
+          "event_class": "Registry",
+          "operation": "RegQueryKey",
+          "process_name": "MicrosoftEdgeUpdate.exe",
+          "pid": 9020,
+          "result": "SUCCESS"
+        }
+      }
+    },
+    {
+      "name": "single_tid_eq",
+      "description": "tid == 796 (idx<=0)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["tid", "==", "796", "include"], ["event_index", "<=", "0", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "File System",
+          "operation": "QueryNameInformationFile",
+          "process_name": "lsass.exe",
+          "pid": 744,
+          "tid": 796,
+          "result": "SUCCESS",
+          "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"
+        }
+      }
+    },
+    {
+      "name": "single_pid_eq",
+      "description": "pid == 744 (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["pid", "==", "744", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {"tid": 796, "result": "SUCCESS", "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"}
+          },
+          {
+            "index": 1,
+            "fields": {"tid": 852, "result": "SUCCESS", "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_parent_pid_eq",
+      "description": "parent_pid == 716 (idx 12-16)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["parent_pid", "==", "716", "include"],
+        ["event_index", ">=", "12", "include"],
+        ["event_index", "<=", "16", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "parent_pid", "result"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"parent_pid": 716},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "svchost.exe", "pid": 876}},
+          {"index": 1, "fields": {"process_name": "svchost.exe", "pid": 988}},
+          {"index": 2, "fields": {"process_name": "svchost.exe", "pid": 72}}
+        ]
+      }
+    },
+    {
+      "name": "single_session_eq",
+      "description": "session == 1 (idx 8-9)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["session", "==", "1", "include"],
+        ["event_index", ">=", "8", "include"],
+        ["event_index", "<=", "9", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "session", "result"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"session": 1},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "csrss.exe", "pid": 616}},
+          {"index": 1, "fields": {"process_name": "winlogon.exe", "pid": 696}}
+        ]
+      }
+    },
+    {
+      "name": "single_authentication_id_eq",
+      "description": "authentication_id == 00000000:000386b9 (idx 71-73)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["authentication_id", "==", "00000000:000386b9", "include"],
+        ["event_index", ">=", "71", "include"],
+        ["event_index", "<=", "73", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "authentication_id", "session", "user"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"authentication_id": "00000000:000386b9"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {"process_name": "sihost.exe", "pid": 4124, "session": 1, "user": "DESKTOP-IFKRIMS\\Sol"}
+          },
+          {
+            "index": 1,
+            "fields": {"process_name": "svchost.exe", "pid": 4144, "session": 1, "user": "DESKTOP-IFKRIMS\\Sol"}
+          },
+          {
+            "index": 2,
+            "fields": {"process_name": "svchost.exe", "pid": 4204, "session": 1, "user": "DESKTOP-IFKRIMS\\Sol"}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_virtualized_eq",
+      "description": "virtualized == 0 (idx<=4)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["virtualized", "==", "0", "include"], ["event_index", "<=", "4", "include"]],
+      "select_fields": ["event_class", "process_name", "pid", "virtualized", "result"],
+      "expected": {
+        "total_count": 4,
+        "all_events": {"virtualized": false},
+        "event_at": [
+          {"index": 0, "fields": {"event_class": "File System", "process_name": "lsass.exe", "pid": 744}},
+          {"index": 1, "fields": {"event_class": "File System", "process_name": "lsass.exe", "pid": 744}},
+          {"index": 2, "fields": {"event_class": "Profiling", "process_name": "System", "pid": 4}},
+          {"index": 3, "fields": {"event_class": "Profiling", "process_name": "Registry", "pid": 108}}
+        ]
+      }
+    },
+    {
+      "name": "single_is_64_bit_eq",
+      "description": "is_64_bit == 1 (idx<=3)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["is_64_bit", "==", "1", "include"], ["event_index", "<=", "3", "include"]],
+      "select_fields": ["event_class", "process_name", "pid", "is_64_bit"],
+      "expected": {
+        "total_count": 4,
+        "all_events": {"is_64_bit": true},
+        "event_at": [
+          {"index": 0, "fields": {"event_class": "File System", "process_name": "lsass.exe", "pid": 744}},
+          {"index": 1, "fields": {"event_class": "File System", "process_name": "lsass.exe", "pid": 744}},
+          {"index": 2, "fields": {"event_class": "Profiling", "process_name": "Idle", "pid": 0}},
+          {"index": 3, "fields": {"event_class": "Profiling", "process_name": "System", "pid": 4}}
+        ]
+      }
+    },
+    {
+      "name": "single_operation_regex",
+      "description": "operation regex RegSetValue (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["operation", "regex", "RegSetValue", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "165", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"operation": "RegSetValue", "event_class": "Registry"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 4294967295}
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadProgressPercent",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 0}
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\StateValue",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 7}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_result_regex",
+      "description": "result regex NAME NOT FOUND (idx 168-169)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["result", "regex", "NAME NOT FOUND", "include"],
+        ["event_index", ">=", "168", "include"],
+        ["event_index", "<=", "169", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"result": "NAME NOT FOUND"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "RegOpenKey",
+              "process_name": "Explorer.EXE",
+              "pid": 5012,
+              "path": "HKCU\\Software\\Classes\\CLSID\\{56AD4C5D-B908-4F85-8FF1-7940C29B3BCF}\\Instance"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "RegOpenKey",
+              "process_name": "Explorer.EXE",
+              "pid": 5012,
+              "path": "HKCR\\CLSID\\{56AD4C5D-B908-4F85-8FF1-7940C29B3BCF}\\Instance"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_result_access_denied",
+      "description": "result regex ACCESS DENIED (idx 3851)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["result", "regex", "ACCESS DENIED", "include"],
+        ["event_index", ">=", "3851", "include"],
+        ["event_index", "<=", "3851", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Registry",
+          "operation": "RegCreateKey",
+          "process_name": "svchost.exe",
+          "pid": 6100,
+          "result": "ACCESS DENIED",
+          "path": "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\Root",
+          "detail": {"Desired Access": "Read/Write, Delete"}
+        }
+      }
+    },
+    {
+      "name": "single_result_buffer_overflow",
+      "description": "result regex BUFFER OVERFLOW (idx 240)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["result", "regex", "BUFFER OVERFLOW", "include"],
+        ["event_index", ">=", "240", "include"],
+        ["event_index", "<=", "240", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Registry",
+          "operation": "RegQueryValue",
+          "process_name": "svchost.exe",
+          "pid": 5456,
+          "result": "BUFFER OVERFLOW",
+          "path": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\PolicyExtensions\\TenantRestrictionsPlugin.dll\\PolicySubPath"
+        }
+      }
+    },
+    {
+      "name": "single_result_reparse",
+      "description": "result regex REPARSE (idx 287)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["result", "regex", "REPARSE", "include"],
+        ["event_index", ">=", "287", "include"],
+        ["event_index", "<=", "287", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Registry",
+          "operation": "RegOpenKey",
+          "process_name": "svchost.exe",
+          "pid": 5456,
+          "result": "REPARSE",
+          "path": "HKLM\\System\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"
+        }
+      }
+    },
+    {
+      "name": "single_process_name_regex",
+      "description": "process_name regex ^lsass\\.exe$ (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["process_name", "regex", "^lsass\\.exe$", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744},
+        "event_at": [{"index": 0, "fields": {"tid": 796}}, {"index": 1, "fields": {"tid": 852}}]
+      }
+    },
+    {
+      "name": "single_image_path_regex",
+      "description": "image_path regex lsass (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["image_path", "regex", "Windows\\\\system32\\\\lsass", "include"],
+        ["event_index", "<=", "1", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {"total_count": 2, "all_events": {"process_name": "lsass.exe", "pid": 744}}
+    },
+    {
+      "name": "single_command_line_regex",
+      "description": "command_line regex svchost.*netsvcs (idx 215-216)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["command_line", "regex", "svchost.*netsvcs", "include"],
+        ["event_index", ">=", "215", "include"],
+        ["event_index", "<=", "216", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "svchost.exe"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "Network",
+              "operation": "TCP Receive",
+              "pid": 5456,
+              "result": "SUCCESS",
+              "path": "DESKTOP-IFKRIMS.localdomain:49810 -> 198.18.0.164:https"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "Network",
+              "operation": "TCP Disconnect",
+              "pid": 5456,
+              "result": "SUCCESS",
+              "path": "DESKTOP-IFKRIMS.localdomain:49810 -> 198.18.0.164:https"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_user_regex",
+      "description": "user regex SYSTEM (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["user", "regex", "SYSTEM", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744,
+              "result": "SUCCESS"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744,
+              "result": "SUCCESS"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_company_regex",
+      "description": "company regex ^Microsoft (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["company", "regex", "^Microsoft", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {"event_class": "File System", "process_name": "lsass.exe", "pid": 744, "result": "SUCCESS"}
+          },
+          {
+            "index": 1,
+            "fields": {"event_class": "File System", "process_name": "lsass.exe", "pid": 744, "result": "SUCCESS"}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_version_regex",
+      "description": "version regex 10.3.10 (VMware, idx 36-62)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["version", "regex", "10\\.3\\.10", "include"],
+        ["event_index", ">=", "36", "include"],
+        ["event_index", "<=", "62", "include"]
+      ],
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {"index": 0, "fields": {"event_class": "Profiling", "process_name": "vmacthlp.exe", "pid": 2004}},
+          {"index": 1, "fields": {"event_class": "Profiling", "process_name": "vmtoolsd.exe", "pid": 3240}},
+          {
+            "index": 2,
+            "fields": {"event_class": "Profiling", "process_name": "VGAuthService.exe", "pid": 3296}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_description_regex",
+      "description": "description regex VMware (idx 36-62)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["description", "regex", "VMware", "include"],
+        ["event_index", ">=", "36", "include"],
+        ["event_index", "<=", "62", "include"]
+      ],
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {"index": 0, "fields": {"event_class": "Profiling", "process_name": "vmacthlp.exe", "pid": 2004}},
+          {"index": 1, "fields": {"event_class": "Profiling", "process_name": "vmtoolsd.exe", "pid": 3240}},
+          {
+            "index": 2,
+            "fields": {"event_class": "Profiling", "process_name": "VGAuthService.exe", "pid": 3296}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_integrity_regex",
+      "description": "integrity regex ^High$ (idx 100-150)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["integrity", "regex", "^High$", "include"],
+        ["event_index", ">=", "100", "include"],
+        ["event_index", "<=", "150", "include"]
+      ],
+      "select_fields": ["event_class", "process_name", "pid", "integrity", "result"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Profiling",
+          "process_name": "Procmon64.exe",
+          "pid": 6668,
+          "integrity": "High",
+          "result": "SUCCESS"
+        }
+      }
+    },
+    {
+      "name": "single_path_regex",
+      "description": "path regex HKLM\\\\SOFTWARE.*EdgeUpdate (idx 150-152)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["path", "regex", "HKLM\\\\SOFTWARE.*EdgeUpdate", "include"],
+        ["event_index", ">=", "150", "include"],
+        ["event_index", "<=", "152", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "Registry",
+              "operation": "RegSetInfoKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "Registry",
+              "operation": "RegSetValue",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs"
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "event_class": "Registry",
+              "operation": "RegCloseKey",
+              "process_name": "MicrosoftEdgeUpdate.exe",
+              "pid": 9020,
+              "result": "SUCCESS",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_category_regex",
+      "description": "category regex ^Write$ (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["category", "regex", "^Write$", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "165", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "category"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"category": "Write"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadProgressPercent"
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\StateValue"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_detail_regex",
+      "description": "detail regex REG_DWORD (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["detail", "regex", "REG_DWORD", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "165", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "detail"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 4294967295}
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadProgressPercent",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 0}
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\StateValue",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 7}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_op_alias_is",
+      "description": "event_class is File System (alias for ==)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "is", "File System", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {"operation": "QueryNameInformationFile", "process_name": "lsass.exe", "pid": 744}
+          },
+          {
+            "index": 1,
+            "fields": {"operation": "QueryNameInformationFile", "process_name": "lsass.exe", "pid": 744}
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_op_alias_is_not",
+      "description": "event_class is_not Profiling (alias for !=)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "is_not", "Profiling", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "single_exclude_profiling",
+      "description": "Exclude event_class==Profiling from idx<=4",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "Profiling", "exclude"], ["event_index", "<=", "4", "include"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "operation_exact_single",
+      "description": "Filter by exact operation regex ^RegQueryValue$ — uses RT_HEADER_EQ_ANY integer optimization",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["operation", "regex", "^RegQueryValue$", "include"]
+      ],
+      "select_fields": ["event_index", "event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 30844,
+        "all_events": {
+          "operation": "RegQueryValue",
+          "event_class": "Registry"
+        },
+        "first_event": {
+          "event_index": 228,
+          "event_class": "Registry",
+          "operation": "RegQueryValue",
+          "process_name": "svchost.exe",
+          "pid": 5456,
+          "result": "NAME NOT FOUND"
+        },
+        "last_event": {
+          "event_index": 108193,
+          "event_class": "Registry",
+          "operation": "RegQueryValue",
+          "process_name": "svchost.exe",
+          "pid": 3092,
+          "result": "SUCCESS"
+        }
+      }
+    }
+  ]
+}

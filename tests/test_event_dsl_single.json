@@ -1,0 +1,459 @@
+{
+  "_comment": "Auto-generated test cases. Source: Logfile.zip",
+  "test_cases": [
+    {
+      "name": "dsl_single_event_index",
+      "description": "DSL leaf: event_index == 0",
+      "pml_file": "res/Logfile.zip",
+      "filters": ["event_index", "==", "0"],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "File System",
+          "operation": "QueryNameInformationFile",
+          "process_name": "lsass.exe",
+          "pid": 744,
+          "result": "SUCCESS",
+          "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"
+        }
+      }
+    },
+    {
+      "name": "dsl_single_event_class",
+      "description": "DSL AND: event_class==Network (idx 215-216)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["event_class", "==", "Network"], ["event_index", ">=", "215"], ["event_index", "<=", "216"]]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "Network"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "TCP Receive",
+              "process_name": "svchost.exe",
+              "pid": 5456,
+              "result": "SUCCESS",
+              "path": "DESKTOP-IFKRIMS.localdomain:49810 -> 198.18.0.164:https"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "TCP Disconnect",
+              "process_name": "svchost.exe",
+              "pid": 5456,
+              "result": "SUCCESS",
+              "path": "DESKTOP-IFKRIMS.localdomain:49810 -> 198.18.0.164:https"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_operation",
+      "description": "DSL AND: operation regex RegSetValue (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["operation", "regex", "RegSetValue"], ["event_index", ">=", "147"], ["event_index", "<=", "165"]]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"operation": "RegSetValue"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadProgressPercent"
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\StateValue"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_duration",
+      "description": "DSL leaf: duration >= 1",
+      "pml_file": "res/Logfile.zip",
+      "filters": ["duration", ">=", "1"],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 4,
+        "first_event": {
+          "event_class": "File System",
+          "operation": "FileSystemControl",
+          "process_name": "SearchIndexer.exe",
+          "pid": 4892,
+          "result": "SUCCESS"
+        }
+      }
+    },
+    {
+      "name": "dsl_single_timestamp",
+      "description": "DSL AND: timestamp range",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["timestamp", ">=", "2026-03-21T14:41:31.2"], ["timestamp", "<=", "2026-03-21T14:41:31.3"]]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result"],
+      "expected": {
+        "min_count": 1,
+        "first_event": {
+          "event_class": "Registry",
+          "operation": "RegQueryKey",
+          "process_name": "MicrosoftEdgeUpdate.exe",
+          "pid": 9020,
+          "result": "SUCCESS"
+        }
+      }
+    },
+    {
+      "name": "dsl_single_result",
+      "description": "DSL AND: result ACCESS DENIED (idx 3851)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [
+          ["result", "regex", "ACCESS DENIED"],
+          ["event_index", ">=", "3851"],
+          ["event_index", "<=", "3851"]
+        ]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Registry",
+          "operation": "RegCreateKey",
+          "process_name": "svchost.exe",
+          "pid": 6100,
+          "result": "ACCESS DENIED",
+          "path": "HKLM\\Software\\Policies\\Microsoft\\SystemCertificates\\Root"
+        }
+      }
+    },
+    {
+      "name": "dsl_single_tid",
+      "description": "DSL AND: tid==796 (idx<=0)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["tid", "==", "796"], ["event_index", "<=", "0"]]},
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "File System",
+          "operation": "QueryNameInformationFile",
+          "process_name": "lsass.exe",
+          "pid": 744,
+          "tid": 796,
+          "result": "SUCCESS"
+        }
+      }
+    },
+    {
+      "name": "dsl_single_process_name",
+      "description": "DSL AND: process_name lsass (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["process_name", "regex", "^lsass"], ["event_index", "<=", "1"]]},
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result"],
+      "expected": {"total_count": 2, "all_events": {"process_name": "lsass.exe"}}
+    },
+    {
+      "name": "dsl_single_pid",
+      "description": "DSL AND: pid==744 (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["pid", "==", "744"], ["event_index", "<=", "1"]]},
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {"total_count": 2, "all_events": {"pid": 744}}
+    },
+    {
+      "name": "dsl_single_parent_pid",
+      "description": "DSL AND: parent_pid==716 (idx 12-16)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["parent_pid", "==", "716"], ["event_index", ">=", "12"], ["event_index", "<=", "16"]]},
+      "select_fields": ["event_class", "process_name", "pid", "parent_pid", "result"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"parent_pid": 716},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "svchost.exe", "pid": 876}},
+          {"index": 1, "fields": {"process_name": "svchost.exe", "pid": 988}},
+          {"index": 2, "fields": {"process_name": "svchost.exe", "pid": 72}}
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_image_path",
+      "description": "DSL AND: image_path lsass (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["image_path", "regex", "lsass"], ["event_index", "<=", "1"]]},
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {"total_count": 2, "all_events": {"process_name": "lsass.exe"}}
+    },
+    {
+      "name": "dsl_single_command_line",
+      "description": "DSL AND: command_line svchost netsvcs (idx 215-216)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [
+          ["command_line", "regex", "svchost.*netsvcs"],
+          ["event_index", ">=", "215"],
+          ["event_index", "<=", "216"]
+        ]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result"],
+      "expected": {"total_count": 2, "all_events": {"process_name": "svchost.exe"}}
+    },
+    {
+      "name": "dsl_single_user",
+      "description": "DSL AND: user SYSTEM (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["user", "regex", "SYSTEM"], ["event_index", "<=", "1"]]},
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {"total_count": 2}
+    },
+    {
+      "name": "dsl_single_company",
+      "description": "DSL AND: company Microsoft (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["company", "regex", "^Microsoft"], ["event_index", "<=", "1"]]},
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {"total_count": 2}
+    },
+    {
+      "name": "dsl_single_version",
+      "description": "DSL AND: version 10.3.10 (idx 36-62)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["version", "regex", "10\\.3\\.10"], ["event_index", ">=", "36"], ["event_index", "<=", "62"]]
+      },
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "vmacthlp.exe", "pid": 2004}},
+          {"index": 1, "fields": {"process_name": "vmtoolsd.exe", "pid": 3240}},
+          {"index": 2, "fields": {"process_name": "VGAuthService.exe", "pid": 3296}}
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_description",
+      "description": "DSL AND: description VMware (idx 36-62)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["description", "regex", "VMware"], ["event_index", ">=", "36"], ["event_index", "<=", "62"]]
+      },
+      "select_fields": ["event_class", "process_name", "pid", "result"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "vmacthlp.exe", "pid": 2004}},
+          {"index": 1, "fields": {"process_name": "vmtoolsd.exe", "pid": 3240}},
+          {"index": 2, "fields": {"process_name": "VGAuthService.exe", "pid": 3296}}
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_integrity",
+      "description": "DSL AND: integrity High (idx 100-150)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["integrity", "regex", "^High$"], ["event_index", ">=", "100"], ["event_index", "<=", "150"]]
+      },
+      "select_fields": ["event_class", "process_name", "pid", "integrity", "result"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "Profiling",
+          "process_name": "Procmon64.exe",
+          "pid": 6668,
+          "integrity": "High",
+          "result": "SUCCESS"
+        }
+      }
+    },
+    {
+      "name": "dsl_single_session",
+      "description": "DSL AND: session==1 (idx 8-9)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["session", "==", "1"], ["event_index", ">=", "8"], ["event_index", "<=", "9"]]},
+      "select_fields": ["event_class", "process_name", "pid", "session", "result"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"session": 1},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "csrss.exe", "pid": 616}},
+          {"index": 1, "fields": {"process_name": "winlogon.exe", "pid": 696}}
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_authentication_id",
+      "description": "DSL AND: auth_id==000386b9 (idx 71-73)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [
+          ["authentication_id", "==", "00000000:000386b9"],
+          ["event_index", ">=", "71"],
+          ["event_index", "<=", "73"]
+        ]
+      },
+      "select_fields": ["event_class", "process_name", "pid", "authentication_id", "result"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"authentication_id": "00000000:000386b9"},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "sihost.exe", "pid": 4124}},
+          {"index": 1, "fields": {"process_name": "svchost.exe", "pid": 4144}},
+          {"index": 2, "fields": {"process_name": "svchost.exe", "pid": 4204}}
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_virtualized",
+      "description": "DSL AND: virtualized==0 (idx<=4)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["virtualized", "==", "0"], ["event_index", "<=", "4"]]},
+      "select_fields": ["event_class", "process_name", "pid", "virtualized"],
+      "expected": {"total_count": 4, "all_events": {"virtualized": false}}
+    },
+    {
+      "name": "dsl_single_is_64_bit",
+      "description": "DSL AND: is_64_bit==1 (idx<=3)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["is_64_bit", "==", "1"], ["event_index", "<=", "3"]]},
+      "select_fields": ["event_class", "process_name", "pid", "is_64_bit"],
+      "expected": {"total_count": 4, "all_events": {"is_64_bit": true}}
+    },
+    {
+      "name": "dsl_single_path",
+      "description": "DSL AND: path HKLM EdgeUpdate (idx 150-152)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [
+          ["path", "regex", "HKLM\\\\SOFTWARE.*EdgeUpdate"],
+          ["event_index", ">=", "150"],
+          ["event_index", "<=", "152"]
+        ]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "RegSetInfoKey",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs"
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "operation": "RegCloseKey",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_category",
+      "description": "DSL AND: category Write (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["category", "regex", "^Write$"], ["event_index", ">=", "147"], ["event_index", "<=", "165"]]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "path", "category"],
+      "expected": {"total_count": 3, "all_events": {"category": "Write"}}
+    },
+    {
+      "name": "dsl_single_detail",
+      "description": "DSL AND: detail REG_DWORD (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {
+        "AND": [["detail", "regex", "REG_DWORD"], ["event_index", ">=", "147"], ["event_index", "<=", "165"]]
+      },
+      "select_fields": ["event_class", "operation", "process_name", "pid", "path", "detail"],
+      "expected": {
+        "total_count": 3,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadProgressPercent"
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\StateValue"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "dsl_single_not",
+      "description": "DSL NOT: not Profiling (idx<=4)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [{"NOT": ["event_class", "==", "Profiling"]}, ["event_index", "<=", "4"]]},
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

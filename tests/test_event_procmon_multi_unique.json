@@ -1,0 +1,285 @@
+{
+  "_comment": "Auto-generated test cases. Source: Logfile.zip",
+  "test_cases": [
+    {
+      "name": "multi_u_event_class_pid",
+      "description": "event_class==FS + pid==744 (idx<=1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "File System", "include"],
+        ["pid", "==", "744", "include"],
+        ["event_index", "<=", "1", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System", "pid": 744},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "operation": "QueryNameInformationFile",
+              "tid": 796,
+              "result": "SUCCESS",
+              "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "operation": "QueryNameInformationFile",
+              "tid": 852,
+              "result": "SUCCESS",
+              "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "multi_u_class_procname_result",
+      "description": "Registry + EdgeUpdate + SUCCESS (idx 147-152)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Registry", "include"],
+        ["process_name", "regex", "^MicrosoftEdgeUpdate", "include"],
+        ["result", "regex", "SUCCESS", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "152", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "category"],
+      "expected": {
+        "total_count": 6,
+        "all_events": {"event_class": "Registry", "result": "SUCCESS"},
+        "event_at": [
+          {"index": 0, "fields": {"operation": "RegQueryKey", "path": "HKLM", "category": "Read"}},
+          {"index": 1, "fields": {"operation": "RegQueryKey", "path": "HKLM", "category": "Read"}},
+          {
+            "index": 2,
+            "fields": {
+              "operation": "RegCreateKey",
+              "path": "HKLM\\Software\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState",
+              "category": "Read"
+            }
+          },
+          {
+            "index": 3,
+            "fields": {
+              "operation": "RegSetInfoKey",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState",
+              "category": "Write Metadata"
+            }
+          },
+          {
+            "index": 4,
+            "fields": {
+              "operation": "RegSetValue",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs",
+              "category": "Write"
+            }
+          },
+          {
+            "index": 5,
+            "fields": {
+              "operation": "RegCloseKey",
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState",
+              "category": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "multi_u_pid_tid_op_path",
+      "description": "pid+tid+operation+path (idx<=5)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["pid", "==", "744", "include"],
+        ["tid", "==", "796", "include"],
+        ["operation", "regex", "QueryName", "include"],
+        ["path", "regex", "Procmon64", "include"],
+        ["event_index", "<=", "5", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "tid", "result", "path"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {
+          "event_class": "File System",
+          "operation": "QueryNameInformationFile",
+          "process_name": "lsass.exe",
+          "pid": 744,
+          "tid": 796,
+          "result": "SUCCESS",
+          "path": "C:\\works\\ProcessMonitor\\Procmon64.exe"
+        }
+      }
+    },
+    {
+      "name": "multi_u_class_user_integ_session_64",
+      "description": "Profiling+SYSTEM+System+session0+64bit (idx 3-5)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Profiling", "include"],
+        ["user", "regex", "SYSTEM", "include"],
+        ["integrity", "regex", "^System$", "include"],
+        ["session", "==", "0", "include"],
+        ["is_64_bit", "==", "1", "include"],
+        ["event_index", ">=", "3", "include"],
+        ["event_index", "<=", "5", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "integrity", "session", "is_64_bit"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"event_class": "Profiling", "integrity": "System", "session": 0, "is_64_bit": true},
+        "event_at": [
+          {"index": 0, "fields": {"process_name": "System", "pid": 4}},
+          {"index": 1, "fields": {"process_name": "Registry", "pid": 108}},
+          {"index": 2, "fields": {"process_name": "smss.exe", "pid": 428}}
+        ]
+      }
+    },
+    {
+      "name": "multi_u_procname_imgpath_company_ppid_virt",
+      "description": "svchost+system32+Microsoft+ppid716+virt0 (idx 12-16)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["process_name", "regex", "^svchost", "include"],
+        ["image_path", "regex", "system32", "include"],
+        ["company", "regex", "Microsoft", "include"],
+        ["parent_pid", "==", "716", "include"],
+        ["virtualized", "==", "0", "include"],
+        ["event_index", ">=", "12", "include"],
+        ["event_index", "<=", "16", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "parent_pid", "virtualized"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"process_name": "svchost.exe", "parent_pid": 716, "virtualized": false},
+        "event_at": [
+          {"index": 0, "fields": {"pid": 876}},
+          {"index": 1, "fields": {"pid": 988}},
+          {"index": 2, "fields": {"pid": 72}}
+        ]
+      }
+    },
+    {
+      "name": "multi_u_class_op_cat_detail_cmd_desc",
+      "description": "Registry+RegSetValue+Write+DWORD+EdgeUpdate (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Registry", "include"],
+        ["operation", "regex", "RegSetValue", "include"],
+        ["category", "regex", "^Write$", "include"],
+        ["detail", "regex", "REG_DWORD", "include"],
+        ["command_line", "regex", "EdgeUpdate", "include"],
+        ["description", "regex", "Edge Update", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "165", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path", "category", "detail"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"event_class": "Registry", "operation": "RegSetValue", "category": "Write"},
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadTimeRemainingMs",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 4294967295}
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\DownloadProgressPercent",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 0}
+            }
+          },
+          {
+            "index": 2,
+            "fields": {
+              "path": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\ClientState\\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}\\CurrentState\\StateValue",
+              "detail": {"Type": "REG_DWORD", "Length": "4", "Data": 7}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "multi_u_include_exclude",
+      "description": "idx<=5, exclude Profiling",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "<=", "5", "include"], ["event_class", "==", "Profiling", "exclude"]],
+      "select_fields": ["event_class", "operation", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "event_at": [
+          {
+            "index": 0,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          },
+          {
+            "index": 1,
+            "fields": {
+              "event_class": "File System",
+              "operation": "QueryNameInformationFile",
+              "process_name": "lsass.exe",
+              "pid": 744
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "multi_u_timestamp_duration_authid",
+      "description": "timestamp range + auth_id + duration (narrow window)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["timestamp", ">=", "2026-03-21T14:41:10.5", "include"],
+        ["timestamp", "<=", "2026-03-21T14:41:10.6", "include"],
+        ["authentication_id", "==", "00000000:000003e7", "include"],
+        ["duration", "<=", "0.0001", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "timestamp", "duration", "authentication_id"],
+      "expected": {
+        "total_count": 88,
+        "all_events": {"authentication_id": "00000000:000003e7"},
+        "first_event": {
+          "event_class": "File System",
+          "operation": "QueryNameInformationFile",
+          "process_name": "lsass.exe",
+          "pid": 744
+        }
+      }
+    },
+    {
+      "name": "multi_u_class_result_path_version",
+      "description": "Registry+SUCCESS+HKLM+version1.3.225 (idx 147-165)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [
+        ["event_class", "==", "Registry", "include"],
+        ["result", "regex", "SUCCESS", "include"],
+        ["path", "regex", "HKLM", "include"],
+        ["version", "regex", "1\\.3\\.225", "include"],
+        ["event_index", ">=", "147", "include"],
+        ["event_index", "<=", "165", "include"]
+      ],
+      "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
+      "expected": {
+        "total_count": 18,
+        "all_events": {"event_class": "Registry", "result": "SUCCESS"},
+        "first_event": {
+          "operation": "RegQueryKey",
+          "process_name": "MicrosoftEdgeUpdate.exe",
+          "pid": 9020,
+          "path": "HKLM"
+        }
+      }
+    }
+  ]
+}
