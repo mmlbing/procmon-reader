@@ -37,7 +37,10 @@ if sys.platform == 'win32':
     extra_compile_args = ['/std:c++17', '/O2', '/EHsc']
 else:
     # -pthread is required for std::thread on Linux/macOS GCC/Clang
-    extra_compile_args = ['-std=c++17', '-O2', '-pthread']
+    # -fvisibility=hidden is required by pybind11 to avoid lambda visibility
+    # mismatches between hidden-visibility pybind11 types and default-visibility
+    # lambda closures that capture them (-Wattributes on GCC).
+    extra_compile_args = ['-std=c++17', '-O2', '-pthread', '-fvisibility=hidden']
     extra_link_args = ['-pthread']
 
 _pml_core = Extension(
