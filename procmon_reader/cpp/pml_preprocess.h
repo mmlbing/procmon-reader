@@ -1,8 +1,11 @@
 /*
  * pml_preprocess.h — Filter preprocessing types and field metadata.
  *
- * Field IDs, name normalization, operator parsing, value conversion
+ * Field IDs, operator parsing, value conversion
  * (ISO timestamp → FILETIME, duration → ticks, etc.).
+ *
+ * Field name and operator alias resolution is handled by Python (filters.py);
+ * C++ receives only canonical field names and operator strings.
  */
 
 #pragma once
@@ -14,12 +17,10 @@
 #include <cmath>
 #include <cstdint>
 #include <optional>
-#include <regex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
-
+#include <vector>
 
 namespace pml_pre {
 
@@ -99,9 +100,11 @@ inline FieldCategory get_field_category(int fid) {
 enum OpId : int {
     OP_ID_EQ    = 0,
     OP_ID_NE    = 1,
-    OP_ID_LE    = 2,
-    OP_ID_GE    = 3,
-    OP_ID_REGEX = 4,
+    OP_ID_LT    = 2,
+    OP_ID_LE    = 3,
+    OP_ID_GE    = 4,
+    OP_ID_GT    = 5,
+    OP_ID_REGEX = 6,
 };
 
 
@@ -111,7 +114,7 @@ enum OpId : int {
 struct FieldMeta {
     int field_id;            /* FieldId for select_fields / output */
     bool filterable;
-    bool allows_comparison;  /* ==, !=, <=, >= */
+    bool allows_comparison;  /* ==, !=, <, <=, >=, > */
     bool allows_regex;
 };
 
@@ -120,79 +123,9 @@ struct FieldMeta {
  * Static lookup tables
  * ================================================================ */
 
-/* Case-insensitive string hasher/comparator for unordered_map */
-struct CaseInsensitiveHash {
-    size_t operator()(const std::string &s) const {
-        size_t h = 0;
-        for (char c : s)
-            h = h * 31 + static_cast<size_t>(std::tolower(static_cast<unsigned char>(c)));
-        return h;
-    }
-};
-struct CaseInsensitiveEqual {
-    bool operator()(const std::string &a, const std::string &b) const {
-        if (a.size() != b.size()) return false;
-        for (size_t i = 0; i < a.size(); i++)
-            if (std::tolower(static_cast<unsigned char>(a[i])) !=
-                std::tolower(static_cast<unsigned char>(b[i])))
-                return false;
-        return true;
-    }
-};
-
-using CIMap = std::unordered_map<std::string, int, CaseInsensitiveHash, CaseInsensitiveEqual>;
-using CIMetaMap = std::unordered_map<std::string, FieldMeta, CaseInsensitiveHash, CaseInsensitiveEqual>;
-using CIStrMap = std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual>;
-
-
-/* ----------------------------------------------------------------
- * Field name → canonical name
- * ---------------------------------------------------------------- */
-inline const CIStrMap &field_name_aliases() {
-    static const CIStrMap m = {
-        {"event_index", "event_index"},
-        {"event class", "event_class"}, {"eventclass", "event_class"},
-        {"event_class", "event_class"},
-        {"operation", "operation"},
-        {"duration", "duration"},
-        {"timestamp", "timestamp"}, {"date_filetime", "timestamp"},
-        {"date", "timestamp"}, {"time", "timestamp"},
-        {"datetime", "timestamp"}, {"date and time", "timestamp"},
-        {"date_and_time", "timestamp"},
-        {"result", "result"},
-        {"tid", "tid"}, {"thread_id", "tid"}, {"thread id", "tid"},
-        {"process_index", "process_index"},
-        {"process_name", "process_name"}, {"processname", "process_name"},
-        {"process name", "process_name"},
-        {"pid", "pid"}, {"process_id", "pid"},
-        {"parent_pid", "parent_pid"}, {"parent pid", "parent_pid"},
-        {"parentpid", "parent_pid"},
-        {"image_path", "image_path"}, {"imagepath", "image_path"},
-        {"image path", "image_path"},
-        {"command_line", "command_line"}, {"commandline", "command_line"},
-        {"command line", "command_line"},
-        {"user", "user"}, {"company", "company"},
-        {"version", "version"}, {"description", "description"},
-        {"integrity", "integrity"}, {"session", "session"},
-        {"authentication_id", "authentication_id"},
-        {"authenticationid", "authentication_id"},
-        {"authentication id", "authentication_id"},
-        {"virtualized", "virtualized"},
-        {"is_64_bit", "is_64_bit"}, {"is_process_64bit", "is_64_bit"},
-        {"architecture", "is_64_bit"},
-        {"path", "path"}, {"category", "category"},
-        {"detail", "detail"}, {"details", "detail"},
-        {"stacktrace", "stacktrace"}, {"stack trace", "stacktrace"},
-    };
-    return m;
-}
-
-
-/* ----------------------------------------------------------------
- * Canonical field name → FieldMeta
- * ---------------------------------------------------------------- */
-inline const CIMetaMap &field_registry() {
-    static const CIMetaMap m = {
+/* Canonical field name → FieldMeta (field names are pre-normalized by Python) */
+inline const std::unordered_map<std::string, FieldMeta> &field_registry() {
+    static const std::unordered_map<std::string, FieldMeta> m = {
         {"event_index",       {FID_EVENT_INDEX,      true,  true,  false}},
         {"event_class",       {FID_EVENT_CLASS,      true,  true,  false}},
         {"operation",         {FID_OPERATION_REGEX,  true,  false, true}},
@@ -224,59 +157,6 @@ inline const CIMetaMap &field_registry() {
 }
 
 
-/* ----------------------------------------------------------------
- * FieldId → canonical user-facing name
- * ---------------------------------------------------------------- */
-inline const std::unordered_map<int, std::string> &field_id_to_name() {
-    static const std::unordered_map<int, std::string> m = {
-        {FID_EVENT_INDEX,      "event_index"},
-        {FID_EVENT_CLASS,      "event_class"},
-        {FID_OPERATION_EXACT,  "operation"},
-        {FID_OPERATION_REGEX,  "operation"},
-        {FID_DURATION,         "duration"},
-        {FID_TIMESTAMP,        "timestamp"},
-        {FID_RESULT_EXACT,     "result"},
-        {FID_RESULT_REGEX,     "result"},
-        {FID_TID,              "tid"},
-        {FID_PROCESS_INDEX,    "process_index"},
-        {FID_PROCESS_NAME,     "process_name"},
-        {FID_PID,              "pid"},
-        {FID_PARENT_PID,       "parent_pid"},
-        {FID_IMAGE_PATH,       "image_path"},
-        {FID_COMMAND_LINE,     "command_line"},
-        {FID_USER,             "user"},
-        {FID_COMPANY,          "company"},
-        {FID_VERSION,          "version"},
-        {FID_DESCRIPTION,      "description"},
-        {FID_INTEGRITY,        "integrity"},
-        {FID_SESSION,          "session"},
-        {FID_AUTHENTICATION_ID,"authentication_id"},
-        {FID_VIRTUALIZED,      "virtualized"},
-        {FID_IS_64_BIT,        "is_64_bit"},
-        {FID_PATH,             "path"},
-        {FID_CATEGORY,         "category"},
-        {FID_DETAIL,           "detail"},
-        {FID_STACKTRACE,       "stacktrace"},
-    };
-    return m;
-}
-
-
-/* ----------------------------------------------------------------
- * Operator string → OpId
- * ---------------------------------------------------------------- */
-inline const CIMap &operator_aliases() {
-    static const CIMap m = {
-        {"==", OP_ID_EQ}, {"is", OP_ID_EQ}, {"equals", OP_ID_EQ},
-        {"!=", OP_ID_NE}, {"is_not", OP_ID_NE}, {"not_equals", OP_ID_NE},
-        {"<=", OP_ID_LE}, {"le", OP_ID_LE}, {"less_equal", OP_ID_LE},
-        {">=", OP_ID_GE}, {"ge", OP_ID_GE}, {"more_equal", OP_ID_GE},
-        {"regex", OP_ID_REGEX},
-    };
-    return m;
-}
-
-
 /* ================================================================
  * Normalization helpers
  * ================================================================ */
@@ -298,35 +178,22 @@ inline std::string to_upper(const std::string &s) {
 }
 
 
-/* ----------------------------------------------------------------
- * Normalize a user field name to canonical form
- * Returns empty string if unknown.
- * ---------------------------------------------------------------- */
-inline std::string normalize_field_name(const std::string &name) {
-    std::string key = trim(name);
-    /* lowercase for lookup */
-    for (char &c : key)
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    auto it = field_name_aliases().find(key);
-    return (it != field_name_aliases().end()) ? it->second : "";
-}
-
-
-/* ----------------------------------------------------------------
- * Parse operator string to OpId. Returns -1 if unknown.
- * ---------------------------------------------------------------- */
+/* Parse canonical operator string to OpId.
+ * Python pre-normalizes all aliases; only canonical forms reach C++.
+ * Returns -1 if unknown. */
 inline int parse_operator(const std::string &op) {
-    std::string key = trim(op);
-    for (char &c : key)
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    auto it = operator_aliases().find(key);
-    return (it != operator_aliases().end()) ? it->second : -1;
+    if (op == "==")    return OP_ID_EQ;
+    if (op == "!=")    return OP_ID_NE;
+    if (op == "<")     return OP_ID_LT;
+    if (op == "<=")    return OP_ID_LE;
+    if (op == ">=")    return OP_ID_GE;
+    if (op == ">")     return OP_ID_GT;
+    if (op == "regex") return OP_ID_REGEX;
+    return -1;
 }
 
 
-/* ----------------------------------------------------------------
- * Resolve canonical field name to FieldMeta. Returns nullptr if unknown.
- * ---------------------------------------------------------------- */
+/* Resolve canonical field name to FieldMeta. Returns nullptr if unknown. */
 inline const FieldMeta *get_field_meta(const std::string &canonical) {
     auto it = field_registry().find(canonical);
     return (it != field_registry().end()) ? &it->second : nullptr;
@@ -438,15 +305,16 @@ inline bool ci_contains_any(const std::string &haystack,
 
 /* ================================================================
  * Event class name → value conversion
+ * (Python pre-normalizes aliases; only canonical names reach C++)
  * ================================================================ */
-inline const CIMap &event_class_name_to_value() {
-    static const CIMap m = {
-        {"UNKNOWN", 0},
-        {"PROCESS", 1},
-        {"REGISTRY", 2},
-        {"FILE SYSTEM", 3}, {"FILE_SYSTEM", 3},
-        {"PROFILING", 4},
-        {"NETWORK", 5},
+inline const std::unordered_map<std::string, int> &event_class_name_to_value() {
+    static const std::unordered_map<std::string, int> m = {
+        {"Unknown",     0},
+        {"Process",     1},
+        {"Registry",    2},
+        {"File System", 3},
+        {"Profiling",   4},
+        {"Network",     5},
     };
     return m;
 }

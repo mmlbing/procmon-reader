@@ -5,7 +5,7 @@
       "name": "dsl_single_event_index",
       "description": "DSL leaf: event_index == 0",
       "pml_file": "res/Logfile.zip",
-      "filters": ["event_index", "==", "0"],
+      "filters": {"AND": [["event_index", "==", "0"]]},
       "select_fields": ["event_class", "operation", "process_name", "pid", "result", "path"],
       "expected": {
         "total_count": 1,
@@ -91,7 +91,7 @@
       "name": "dsl_single_duration",
       "description": "DSL leaf: duration >= 1",
       "pml_file": "res/Logfile.zip",
-      "filters": ["duration", ">=", "1"],
+      "filters": {"AND": [["duration", ">=", "1"]]},
       "select_fields": ["event_class", "operation", "process_name", "pid", "result"],
       "expected": {
         "total_count": 4,

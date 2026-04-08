@@ -338,8 +338,10 @@ std::vector<uint8_t> ProcmonReader::build_process_mask(
             switch (op_id) {
                 case OP_EQ: match = (iv == int_value); break;
                 case OP_NE: match = (iv != int_value); break;
+                case OP_LT: match = (iv <  int_value); break;
                 case OP_LE: match = (iv <= int_value); break;
                 case OP_GE: match = (iv >= int_value); break;
+                case OP_GT: match = (iv >  int_value); break;
                 default: break;
             }
         }
@@ -362,10 +364,8 @@ void ProcmonReader::preprocess_leaf(
     using namespace pml_pre;
     ensure_reverse_maps();
 
-    std::string canonical = normalize_field_name(node.field_name);
-    if (canonical.empty())
-        throw std::invalid_argument("Unknown field: '" + node.field_name + "'");
-
+    /* Field name is already canonical (normalized by Python) */
+    const std::string &canonical = node.field_name;
     const FieldMeta *meta = get_field_meta(canonical);
     if (!meta)
         throw std::invalid_argument("Unknown field: '" + node.field_name + "'");
@@ -378,7 +378,8 @@ void ProcmonReader::preprocess_leaf(
 
     /* Validate operator for field */
     bool is_comp = (op_id == OP_ID_EQ || op_id == OP_ID_NE ||
-                    op_id == OP_ID_LE || op_id == OP_ID_GE);
+                    op_id == OP_ID_LT || op_id == OP_ID_LE ||
+                    op_id == OP_ID_GE || op_id == OP_ID_GT);
     bool is_re   = (op_id == OP_ID_REGEX);
     if (is_comp && !meta->allows_comparison)
         throw std::invalid_argument("Operator '" + node.op + "' not supported for '" + node.field_name + "'");
@@ -785,14 +786,12 @@ std::vector<EventOutput> ProcmonReader::read_events_batch(
     std::vector<FieldSpec> fields;
 
     for (auto &sf : select_fields) {
-        std::string canonical = pml_pre::normalize_field_name(sf);
-        if (canonical.empty())
-            throw std::invalid_argument("Unknown field: '" + sf + "'");
-        const pml_pre::FieldMeta *meta = pml_pre::get_field_meta(canonical);
+        /* Field name is already canonical (normalized by Python) */
+        const pml_pre::FieldMeta *meta = pml_pre::get_field_meta(sf);
         if (!meta) continue;
 
         FieldSpec fs;
-        fs.name = canonical;
+        fs.name = sf;
         fs.field_id = meta->field_id;
         fs.category = pml_pre::get_field_category(meta->field_id);
         fields.push_back(fs);
