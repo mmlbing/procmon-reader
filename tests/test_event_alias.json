@@ -1,0 +1,307 @@
+{
+  "_comment": "Alias & normalisation tests for build_filter_tree, run via test_event.py. Source: Logfile.zip",
+  "test_cases": [
+
+    {
+      "name": "alias_num_is",
+      "description": "pid 'is' 744 — alias for ==",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["pid", "is", "744", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744}
+      }
+    },
+    {
+      "name": "alias_num_equals",
+      "description": "pid 'equals' 744 — alias for ==",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["pid", "equals", "744", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744}
+      }
+    },
+    {
+      "name": "alias_num_is_not",
+      "description": "pid 'is_not' 744 within idx 0-2 — should get only idx 2 (pid 0)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["pid", "is_not", "744", "include"], ["event_index", "<=", "2", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "Idle", "pid": 0}
+      }
+    },
+    {
+      "name": "alias_num_not_equals",
+      "description": "pid 'not_equals' 744 within idx 0-2",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["pid", "not_equals", "744", "include"], ["event_index", "<=", "2", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "Idle", "pid": 0}
+      }
+    },
+    {
+      "name": "alias_num_le",
+      "description": "event_index 'le' 2 — alias for <=",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "le", "2", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 3
+      }
+    },
+    {
+      "name": "alias_num_less_equal",
+      "description": "event_index 'less_equal' 2",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "less_equal", "2", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 3
+      }
+    },
+    {
+      "name": "alias_num_ge",
+      "description": "event_index 'ge' 108238 — alias for >=, last event",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "ge", "108238", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "svchost.exe", "pid": 6328}
+      }
+    },
+    {
+      "name": "alias_num_more_equal",
+      "description": "event_index 'more_equal' 108238",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_index", "more_equal", "108238", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "svchost.exe", "pid": 6328}
+      }
+    },
+
+
+    {
+      "name": "alias_str_is",
+      "description": "process_name 'is' lsass.exe — alias for ==",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["process_name", "is", "lsass.exe", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744}
+      }
+    },
+    {
+      "name": "alias_str_equals",
+      "description": "process_name 'equals' lsass.exe",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["process_name", "equals", "lsass.exe", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744}
+      }
+    },
+    {
+      "name": "alias_str_is_not",
+      "description": "process_name 'is_not' lsass.exe within idx 0-2",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["process_name", "is_not", "lsass.exe", "include"], ["event_index", "<=", "2", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "Idle", "pid": 0}
+      }
+    },
+    {
+      "name": "alias_str_not_equals",
+      "description": "process_name 'not_equals' lsass.exe within idx 0-2",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["process_name", "not_equals", "lsass.exe", "include"], ["event_index", "<=", "2", "include"]],
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "Idle", "pid": 0}
+      }
+    },
+
+
+    {
+      "name": "ec_alias_fs",
+      "description": "event_class == 'fs' — alias for File System",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "fs", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "process_name"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System", "process_name": "lsass.exe"}
+      }
+    },
+    {
+      "name": "ec_alias_file_system_underscore",
+      "description": "event_class == 'File_System'",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "File_System", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class", "process_name"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System"}
+      }
+    },
+    {
+      "name": "ec_alias_filesystem_nospace",
+      "description": "event_class == 'FileSystem'",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "FileSystem", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System"}
+      }
+    },
+    {
+      "name": "ec_alias_reg",
+      "description": "event_class == 'reg' — alias for Registry (idx 147-149)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "reg", "include"], ["event_index", ">=", "147", "include"], ["event_index", "<=", "149", "include"]],
+      "select_fields": ["event_class", "operation"],
+      "expected": {
+        "total_count": 3,
+        "all_events": {"event_class": "Registry"}
+      }
+    },
+    {
+      "name": "ec_alias_proc",
+      "description": "event_class == 'proc' — alias for Process (idx 225)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "proc", "include"], ["event_index", "==", "225", "include"]],
+      "select_fields": ["event_class", "operation"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"event_class": "Process", "operation": "Load Image"}
+      }
+    },
+    {
+      "name": "ec_alias_net",
+      "description": "event_class == 'net' — alias for Network (idx 215-216)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "net", "include"], ["event_index", ">=", "215", "include"], ["event_index", "<=", "216", "include"]],
+      "select_fields": ["event_class", "operation"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "Network"}
+      }
+    },
+    {
+      "name": "ec_alias_prof",
+      "description": "event_class == 'prof' — alias for Profiling (idx 2)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "prof", "include"], ["event_index", "==", "2", "include"]],
+      "select_fields": ["event_class", "operation", "process_name"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"event_class": "Profiling", "operation": "Process Profiling", "process_name": "Idle"}
+      }
+    },
+    {
+      "name": "ec_case_insensitive",
+      "description": "event_class == 'FILE SYSTEM' — case insensitive",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "==", "FILE SYSTEM", "include"], ["event_index", "<=", "1", "include"]],
+      "select_fields": ["event_class"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System"}
+      }
+    },
+    {
+      "name": "ec_neq_alias_exclude_profiling",
+      "description": "event_class != 'prof' within idx 0-2 — excludes idx 2 (Profiling)",
+      "pml_file": "res/Logfile.zip",
+      "filters": [["event_class", "!=", "prof", "include"], ["event_index", "<=", "2", "include"]],
+      "select_fields": ["event_class", "process_name"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System", "process_name": "lsass.exe"}
+      }
+    },
+
+
+    {
+      "name": "dsl_alias_is",
+      "description": "DSL: pid 'is' 744 (idx 0-1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["pid", "is", "744"], ["event_index", "<=", "1"]]},
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744}
+      }
+    },
+    {
+      "name": "dsl_alias_equals",
+      "description": "DSL: pid 'equals' 744 (idx 0-1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["pid", "equals", "744"], ["event_index", "<=", "1"]]},
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe", "pid": 744}
+      }
+    },
+    {
+      "name": "dsl_alias_lt_le",
+      "description": "DSL: event_index 'le' 1 — gets first 2 events",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["event_index", "le", "1"], ["pid", "==", "744"]]},
+      "select_fields": ["process_name"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe"}
+      }
+    },
+    {
+      "name": "dsl_alias_gt_ge",
+      "description": "DSL: event_index 'ge' 108238 AND 'more_equal' 108238 — last event",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["event_index", "ge", "108238"], ["event_index", "more_equal", "108238"]]},
+      "select_fields": ["process_name", "pid"],
+      "expected": {
+        "total_count": 1,
+        "first_event": {"process_name": "svchost.exe", "pid": 6328}
+      }
+    },
+    {
+      "name": "dsl_ec_alias_fs",
+      "description": "DSL: event_class == 'fs' (idx 0-1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["event_class", "==", "fs"], ["event_index", "<=", "1"]]},
+      "select_fields": ["event_class"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"event_class": "File System"}
+      }
+    },
+    {
+      "name": "dsl_str_alias_is",
+      "description": "DSL: process_name 'is' lsass.exe (idx 0-1)",
+      "pml_file": "res/Logfile.zip",
+      "filters": {"AND": [["process_name", "is", "lsass.exe"], ["event_index", "<=", "1"]]},
+      "select_fields": ["process_name"],
+      "expected": {
+        "total_count": 2,
+        "all_events": {"process_name": "lsass.exe"}
+      }
+    }
+  ]
+}

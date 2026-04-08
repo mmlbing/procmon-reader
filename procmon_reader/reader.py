@@ -34,7 +34,7 @@ import datetime
 from typing import Dict, List, Optional, Tuple
 
 from procmon_reader._pml_core import ProcmonReaderCore
-from procmon_reader.filters import build_filter_tree
+from procmon_reader.filters import build_filter_tree, normalize_field_name
 
 
 _DEFAULT_SELECT_FIELDS = ['process_name', 'operation', 'result']
@@ -203,11 +203,11 @@ class ProcmonReader:
         # Build filter tree (Python dict/list with raw string values)
         self._filter_tree = build_filter_tree(filters)
 
-        # Store select_fields
+        # Store select_fields (normalize aliases → canonical names)
         if select_fields is None:
             self._select_fields = list(_DEFAULT_SELECT_FIELDS)
         else:
-            self._select_fields = list(select_fields)
+            self._select_fields = [normalize_field_name(f) for f in select_fields]
 
         return self._filter_tree
 

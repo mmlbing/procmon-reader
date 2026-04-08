@@ -36,9 +36,11 @@ constexpr int EVT_HEADER_SIZE          = 0x34;  /* 52 bytes total */
 /* Comparison operator IDs */
 constexpr int OP_EQ    = 0;
 constexpr int OP_NE    = 1;
-constexpr int OP_LE    = 2;
-constexpr int OP_GE    = 3;
-constexpr int OP_REGEX = 4;
+constexpr int OP_LT    = 2;
+constexpr int OP_LE    = 3;
+constexpr int OP_GE    = 4;
+constexpr int OP_GT    = 5;
+constexpr int OP_REGEX = 6;
 
 /* Event class values */
 constexpr uint32_t EC_PROCESS     = 1;

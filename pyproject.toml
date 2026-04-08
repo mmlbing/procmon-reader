@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "procmon-reader"
-version = "0.1.0"
+version = "0.1.1"
 description = "C-accelerated multi-threaded Python reader for Process Monitor PML files"
 readme = "README.md"
 requires-python = ">=3.8"

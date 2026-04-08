@@ -517,6 +517,8 @@ static bool eval_tree_rule(
                 case OP_NE: return v != rule.int_value;
                 case OP_LE: return v <= rule.int_value;
                 case OP_GE: return v >= rule.int_value;
+                case OP_GT: return v >  rule.int_value;
+                case OP_LT: return v <  rule.int_value;
                 default: return true;
             }
         }
